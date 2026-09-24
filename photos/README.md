@@ -30,7 +30,8 @@ Then:
         --anchors 410,300 590,300 400,690 600,690
 
 `--anchors` is four points in photo pixels - the model's left shoulder, right
-shoulder, left hip, right hip, her own left and right. The tool prints the
+shoulder, left hip, right hip, her own left and right, as the pose model
+reads them: `public/pose-test.html` prints them for a photo. The tool prints the
 library entry to paste, with those points turned into shares of the picture.
 They are what the viewer fits to the customer's own shoulders and hips, so a
 photo framed loosely works as well as one cropped tight.

@@ -138,7 +138,7 @@ function tick() {
     try {
       const body = tracker.detect(video, timestamp);
       if (body) {
-        stage.update(body.marks, body.hipsSeen);
+        stage.update(body.marks, body.hipsSeen, body.mask);
         setStatus("");
       } else {
         stage.hide();

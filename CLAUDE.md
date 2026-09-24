@@ -15,9 +15,14 @@ No build step, no dependencies: three.js and MediaPipe come from a CDN.
 There is no test suite. Verify by running it, and say what was not verified. The
 two things worth checking after any change to the fit:
 
-- **The app boots.** Headless Chrome with `--use-fake-device-for-media-stream`
-  gives a camera with no person in it, which is enough to catch a page error,
-  a missing export or a dropdown that never fills.
+- **The app boots.** Load it headless with `--deny-permission-prompts`: it
+  stops at the camera, having loaded every module and filled the dropdown,
+  which is enough to catch a page error or a missing export. Do NOT use
+  `--use-fake-device-for-media-stream` here: on this Mac it has opened the
+  real webcam instead and photographed whoever was in the room.
+- **The pose model and the fit agree.** `pose-test.html` on the saree's own
+  photo runs the real pose model and mask; the cut-out should land back on
+  the model's own saree.
 - **The warp fits a body.** There is no body in a headless browser, so
   `public/fit-test.html` imports `Stage` from `js/scene.js`, hands `update()`
   a synthetic set of pose landmarks, draws a schematic body behind it at the
@@ -38,9 +43,14 @@ python3 tools/garment_cutout.py photos/<name>.png public/textures/<name>.png \
 ```
 
 The anchors are the photographed model's left shoulder, right shoulder, left
-hip and right hip in photo pixels - her own left and right. The tool prints the
-library entry to paste into `public/js/library.js`, with the command in a
-comment so the cut can be remade.
+hip and right hip in photo pixels - her own left and right - **as the pose
+model reads them**, not as they look: copy the photo into `public/`, open
+`pose-test.html?img=<it>`, and it prints `--anchors`. Delete the copy after;
+source photos are never committed. For a model's arms, neck, hair and a
+hanging pallu, the tool also takes `--skin`, `--neck`, `--hair` and `--free`
+(see its docstring). It prints the library entry to paste into
+`public/js/library.js`, with the command in a comment so the cut can be
+remade.
 
 ## Conventions
 

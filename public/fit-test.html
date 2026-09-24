@@ -6,17 +6,18 @@
 <!--
   The fit on a synthetic body, for checking a change to the warp without a
   person in front of a camera. Each panel hands Stage.update() a made-up set of
-  pose landmarks and draws a schematic body behind the garment at the same
-  coordinates. ?saree=<id> picks the entry; the default one otherwise.
+  pose landmarks and a person mask drawn from the same schematic body that is
+  shown behind the garment. ?saree=<id> picks the entry; the default one
+  otherwise. ?mask=0 leaves the outline out, to see the fit without it.
 -->
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }
 </script>
 <style>
   body { margin: 0; background: #222; color: #ddd; font: 13px system-ui, sans-serif; }
-  #grid { display: flex; gap: 12px; padding: 12px; }
+  #grid { display: grid; grid-template-columns: repeat(3, 300px); gap: 12px; padding: 12px; }
   figure { margin: 0; }
-  .panel { position: relative; width: 300px; height: 400px; background: #6f7a80; }
+  .panel { position: relative; width: 300px; height: 400px; background: #6f7a80; overflow: hidden; }
   .panel canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   figcaption { padding: 6px 2px; }
 </style>
@@ -29,22 +30,45 @@ import { POSE } from "./js/tracking.js";
 import { byId, defaultSaree } from "./js/library.js";
 
 const W = 300, H = 400;
-const saree = byId(new URLSearchParams(location.search).get("saree")) ?? defaultSaree();
+const params = new URLSearchParams(location.search);
+const saree = byId(params.get("saree")) ?? defaultSaree();
+const useMask = params.get("mask") !== "0";
 
 // A body in camera pixels, as the unmirrored camera sees it: the subject's own
 // left is on the image's right. `yaw` turns her away (the shoulders
 // foreshorten), `tilt` drops her left shoulder, `lean` moves her hips sideways
-// against her shoulders.
-function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, hipsInFrame }) {
+// against her shoulders, `girth` widens the outline round the same joints,
+// and `raise` lifts the right arm with its hand across the chest - dragging
+// the right shoulder point up by `drag`, as the pose model does.
+function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, raise = false, drag = 0, hipsInFrame }) {
   const w = width * Math.cos(yaw * Math.PI / 180);
   const dy = Math.tan(tilt * Math.PI / 180) * w / 2;
-  const torso = width * 1.45, neck = width * 0.56;
-  const hw = w * 0.7;
+  // The proportions scene.js assumes for hips it cannot see, so a body with
+  // its hips in frame and one without are the same body.
+  const torso = width * 1.56, neck = width * 0.5;
+  const hw = w * 0.51;
+  const sl = [cx + w / 2, sy + dy], sr = [cx - w / 2, sy - dy];
+  const hl = [cx + lean + hw / 2, sy + torso], hr = [cx + lean - hw / 2, sy + torso];
+  const hang = (s, side) => {
+    const e = [s[0] + side * 0.12 * width, s[1] + 0.9 * width];
+    const wr = [e[0] + side * 0.05 * width, e[1] + 0.75 * width];
+    return [e, wr, [wr[0], wr[1] + 0.22 * width]];
+  };
+  const [el, wl, handL] = hang(sl, 1);
+  let [er, wrr, handR] = hang(sr, -1);
+  if (raise) {
+    er = [cx - 0.95 * w, sy + 0.15 * width];
+    wrr = [cx - 0.05 * w, sy + 0.15 * width];
+    handR = [cx + 0.15 * w, sy + 0.02 * width];
+  }
   const px = {
-    [POSE.SHOULDER_LEFT]: [cx + w / 2, sy + dy],
-    [POSE.SHOULDER_RIGHT]: [cx - w / 2, sy - dy],
-    [POSE.HIP_LEFT]: [cx + lean + hw / 2, sy + torso],
-    [POSE.HIP_RIGHT]: [cx + lean - hw / 2, sy + torso],
+    [POSE.SHOULDER_LEFT]: sl,
+    [POSE.SHOULDER_RIGHT]: [sr[0], sr[1] - drag * width],
+    [POSE.HIP_LEFT]: hl, [POSE.HIP_RIGHT]: hr,
+    [POSE.ELBOW_LEFT]: el, [POSE.ELBOW_RIGHT]: er,
+    [POSE.WRIST_LEFT]: wl, [POSE.WRIST_RIGHT]: wrr,
+    [POSE.INDEX_LEFT]: [handL[0] - 5, handL[1]], [POSE.PINKY_LEFT]: [handL[0] + 5, handL[1]],
+    [POSE.INDEX_RIGHT]: [handR[0] + 5, handR[1]], [POSE.PINKY_RIGHT]: [handR[0] - 5, handR[1]],
     [POSE.MOUTH_LEFT]: [cx + w * 0.06 + yaw * 0.6, sy - neck],
     [POSE.MOUTH_RIGHT]: [cx - w * 0.06 + yaw * 0.6, sy - neck],
     [POSE.NOSE]: [cx + yaw * 0.7, sy - neck - width * 0.12],
@@ -53,39 +77,66 @@ function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, hipsInFrame }) {
   for (const [k, [x, y]] of Object.entries(px)) marks[k] = { x: x / W, y: y / H, z: 0, visibility: 0.99 };
   const hipsSeen = hipsInFrame && marks[POSE.HIP_LEFT].y <= 1;
   if (!hipsSeen) marks[POSE.HIP_LEFT].visibility = marks[POSE.HIP_RIGHT].visibility = 0.1;
-  return { marks, hipsSeen, px };
+  // The outline is drawn from the true shoulders, not the dragged point.
+  return { marks, hipsSeen, shape: { sl, sr, hl, hr, el, er, wl, wr: wrr, handL, handR, w, width, girth, nose: px[POSE.NOSE] } };
 }
 
-// Head, neck, the shoulders' outline past the joints, arms and a torso, drawn
-// mirrored as the app shows the camera. Where the hips are out of frame the
-// torso is drawn to where they would be.
-function drawBody(ctx, { px }) {
-  const m = ([x, y]) => [W - x, y];
-  const sl = m(px[POSE.SHOULDER_LEFT]), sr = m(px[POSE.SHOULDER_RIGHT]);
-  const hl = m(px[POSE.HIP_LEFT]), hr = m(px[POSE.HIP_RIGHT]);
-  const nose = m(px[POSE.NOSE]);
-  const w = Math.hypot(sl[0] - sr[0], sl[1] - sr[1]);
-  const out = (p, q, k) => [p[0] + (p[0] - q[0]) * k, p[1] + (p[1] - q[1]) * k];
-  ctx.fillStyle = "#c79a7a";
-  ctx.strokeStyle = "#5a3a2a";
-  ctx.lineWidth = 2;
-  const poly = (pts) => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill(); ctx.stroke(); };
+// Head, neck, torso and arms. `m` maps a camera point to where it is drawn:
+// mirrored for the picture, as the app shows the camera, and as-is for the
+// mask, which is in the camera's own frame.
+function drawBody(ctx, shape, m, fill, stroke) {
+  const { sl, sr, hl, hr, el, er, wl, wr, handL, handR, w, width, girth, nose } = shape;
+  const P = (p) => m(p);
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = stroke ? 2 : 0;
+  const poly = (pts) => { ctx.beginPath(); pts.map(P).forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill(); if (stroke) ctx.stroke(); };
   const mid = [(sl[0] + sr[0]) / 2, (sl[1] + sr[1]) / 2];
-  poly([[mid[0] - w * 0.12, mid[1]], [mid[0] - w * 0.1, nose[1] + w * 0.1], [mid[0] + w * 0.1, nose[1] + w * 0.1], [mid[0] + w * 0.12, mid[1]]]);
-  ctx.beginPath(); ctx.ellipse(nose[0], nose[1] - w * 0.05, w * 0.22, w * 0.29, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  const ol = out(sl, sr, 0.17), or = out(sr, sl, 0.17);
-  for (const [s, o] of [[sl, ol], [sr, or]]) poly([[o[0], o[1] - w * 0.04], [o[0] + (o[0] - s[0]) * 0.3, o[1] + w * 1.3], [s[0], s[1] + w * 1.3], [s[0], s[1]]]);
-  poly([ol, or, out(hr, hl, 0.35), out(hl, hr, 0.35)]);
-  // The joints themselves, which is what the garment is fitted to.
-  ctx.fillStyle = "#0af";
-  for (const [x, y] of [sl, sr, hl, hr]) { ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
+  poly([[mid[0] - w * 0.12, mid[1]], [mid[0] - w * 0.1, nose[1] + width * 0.1], [mid[0] + w * 0.1, nose[1] + width * 0.1], [mid[0] + w * 0.12, mid[1]]]);
+  const [nx, ny] = P([nose[0], nose[1] - width * 0.05]);
+  ctx.beginPath(); ctx.ellipse(nx, ny, width * 0.22, width * 0.29, 0, 0, Math.PI * 2); ctx.fill(); if (stroke) ctx.stroke();
+  // The torso: out past the joints at the shoulders, in at the waist, out at
+  // the hips, each side measured from the body's middle at that height.
+  const at = (t, k) => {
+    const l = [sl[0] + (hl[0] - sl[0]) * t, sl[1] + (hl[1] - sl[1]) * t];
+    const r = [sr[0] + (hr[0] - sr[0]) * t, sr[1] + (hr[1] - sr[1]) * t];
+    const c = [(l[0] + r[0]) / 2, (l[1] + r[1]) / 2];
+    const half = (w / 2) * k * girth;
+    return [[c[0] + half, c[1]], [c[0] - half, c[1]]];
+  };
+  const rows = [[0, 1.05], [0.3, 1.0], [0.65, 0.84], [1.0, 1.0], [1.4, 1.05]].map(([t, k]) => at(t, k));
+  poly([...rows.map((r) => r[0]), ...rows.map((r) => r[1]).reverse()]);
+  // The arms, as thick strokes: upper arm, forearm, hand.
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  for (const [s, e, wr_, hand] of [[sl, el, wl, handL], [sr, er, wr, handR]]) {
+    for (const [a, b, thick] of [[s, e, 0.26], [e, wr_, 0.2], [wr_, hand, 0.22]]) {
+      const [ax, ay] = P(a), [bx, by] = P(b);
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = width * thick + 4; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); }
+      ctx.strokeStyle = fill; ctx.lineWidth = width * thick; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    }
+  }
+}
+
+function maskOf(shape) {
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+  drawBody(ctx, shape, (p) => p, "#fff", null);
+  const rgba = ctx.getImageData(0, 0, W, H).data;
+  const data = new Uint8Array(W * H);
+  for (let i = 0; i < data.length; i++) data[i] = rgba[i * 4];
+  return { data, width: W, height: H };
 }
 
 const CASES = [
   ["Square-on, neck to stomach", { cx: 150, sy: 150, width: 150, hipsInFrame: false }],
   ["Turned 35°, leaning, neck to stomach", { cx: 160, sy: 150, width: 150, yaw: 35, tilt: 8, lean: -20, hipsInFrame: false }],
+  ["Broader body, same joints", { cx: 150, sy: 150, width: 150, girth: 1.2, hipsInFrame: false }],
   ["Square-on, hips in frame", { cx: 150, sy: 110, width: 110, hipsInFrame: true }],
   ["Turned 35°, leaning, hips in frame", { cx: 155, sy: 110, width: 110, yaw: 35, tilt: 8, lean: -25, hipsInFrame: true }],
+  ["Right arm up, hand across the chest", { cx: 150, sy: 150, width: 150, raise: true, drag: 0.15, hipsInFrame: false }],
 ];
 
 const grid = document.getElementById("grid");
@@ -95,18 +146,27 @@ for (const [label, spec] of CASES) {
   fig.innerHTML = `<div class="panel"><canvas class="bg" width="${W}" height="${H}"></canvas><canvas class="gl"></canvas></div><figcaption>${label}</figcaption>`;
   grid.appendChild(fig);
   const b = body(spec);
-  drawBody(fig.querySelector(".bg").getContext("2d"), b);
+  drawBody(fig.querySelector(".bg").getContext("2d"), b.shape, ([x, y]) => [W - x, y], "#c79a7a", "#5a3a2a");
   const stage = new Stage(fig.querySelector(".gl"));
   stage.resize(W, H);
   stage.setVideoSize(W, H);
   stage.wear(saree);
-  stages.push([stage, b]);
+  // A raised arm is held against how the shoulders sat with the arms down,
+  // so that pose is seen first, as it would be on a camera.
+  const before = spec.raise ? body({ ...spec, raise: false, drag: 0 }) : null;
+  stages.push({ stage, b, before, mask: useMask ? maskOf(b.shape) : null });
 }
 
-// The texture arrives asynchronously; draw once it has.
-const wait = () => stages.every(([s]) => s.material.map?.image) ? draw() : setTimeout(wait, 50);
+// The texture arrives asynchronously, and its edges are measured once it
+// has. The fit is damped, so it is run for enough frames to settle.
+const ready = () => stages.every(({ stage }) => stage.material.map?.image && stage.garment.photoEdges);
+const wait = () => ready() ? draw() : setTimeout(wait, 50);
 function draw() {
-  for (const [stage, b] of stages) { stage.update(b.marks, b.hipsSeen); stage.render(); }
+  for (const { stage, b, before, mask } of stages) {
+    if (before) stage.update(before.marks, before.hipsSeen, mask && maskOf(before.shape));
+    for (let i = 0; i < 30; i++) stage.update(b.marks, b.hipsSeen, mask);
+    stage.render();
+  }
   document.title = "Fit test - ready";
 }
 wait();

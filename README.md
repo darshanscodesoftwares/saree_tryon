@@ -68,20 +68,42 @@ left shoulder whatever the photo's framing or slope, and the pallu sits on the
 same shoulder it was draped over. Below the hips the cloth hangs along the
 body's axis as it did in the photo.
 
+Four points alone give a sticker: the cloth stops where the photo's did, and
+hangs over the background wherever the customer is narrower. So the pose
+model's outline of the person is read as well, every frame:
+
+- **The cloth meets the body's edge.** At nine heights down the torso the
+  photographed body's edge, read off the cut-out, is moved to the customer's,
+  read off the outline, and the cloth between is stretched to suit - within a
+  fifth either way, because the outline includes a baggy shirt or an arm held
+  against the side.
+- **The cloth stays on the body.** A shader clips it to the outline, a little
+  past it for the cloth's thickness. The pallu hanging off the shoulder and
+  the skirt below the hips are exempt - a saree's skirt is wider than the legs
+  in it. Each entry outlines its own pallu as `free`.
+- **Arms go in front.** The forearms and hands, from the pose model's elbows,
+  wrists and fingers, are cut out of the cloth wherever they cross it.
+- **A raised arm does not drag the garment.** Raising an arm pulls the pose
+  model's shoulder point up with it; that shoulder is held where it sat
+  against the other one while the arm is up.
+
 Two things are worth knowing:
 
-- **Anchors are at the joints.** The pose model puts a shoulder at the joint,
-  well inside the body's outline, so the anchors in a photo go at the model's
-  joints too. The cloth that reaches past her joints in the photo then reaches
-  past the customer's; a garment fitted with its EDGES on the joints leaves
-  both arms bare.
+- **Anchors are the pose model's own reading of the photo.** Run
+  `public/pose-test.html?img=<photo>` on the source photo and it prints the
+  `--anchors` to use. Placed by eye they came out a quarter too wide at the
+  shoulders and over half again at the hips, because the pose model's points
+  sit at the joints, well inside the outline; the customer is read by the same
+  model, so the photo has to be as well.
 - **Shoulders or nothing.** If either shoulder is read with low confidence,
   the garment is hidden rather than hung on a guess. Half a frame reads worse
   than no garment.
 
-`public/fit-test.html` shows the fit on a synthetic body - square-on and
-turned, framed to the stomach and with the hips in frame - for checking a
-change without a camera.
+Two pages check the fit without a camera. `public/fit-test.html` puts it on
+synthetic bodies - square-on and turned, framed to the stomach and with the
+hips in frame, broader than the photo, an arm raised across the chest.
+`public/pose-test.html` runs the real pose model on a still photo; on the
+saree's own photo the cut-out should land back on the model's own saree.
 
 ## The library
 
@@ -91,11 +113,11 @@ that say where the photographed model's shoulders and hips are in the picture.
 
 ## What is not here yet
 
-- A real photo. The mustard saree is from a generated image on an invisible
-  form, turned three-quarters, so its anchors are estimated rather than
-  measured; the demo is drawn by `tools/make_demo.py`. Both are stand-ins.
-- Occlusion. An arm in front of the body is drawn behind the cloth, because
-  nothing here knows the arm is nearer. Pose gives a depth per landmark that
-  could carry this.
+- Photos of the shop's own sarees. The mustard saree's photo may be a
+  generated image, and the body proportions used when the hips are out of
+  frame were measured on that one photo. The demo is drawn by
+  `tools/make_demo.py`.
+- Occlusion by the upper arm. Forearms and hands go in front of the cloth;
+  an upper arm across the chest does not.
 - Any fit stored per product. The sliders are calibration only, as they are in
   the jewellery viewer at this stage.
