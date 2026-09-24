@@ -120,13 +120,13 @@ function tick() {
     lastTimestamp = timestamp;
 
     try {
-      const landmarks = tracker.detect(video, timestamp);
-      if (landmarks) {
-        stage.update(landmarks);
+      const body = tracker.detect(video, timestamp);
+      if (body) {
+        stage.update(body.marks, body.hipsSeen);
         setStatus("");
       } else {
         stage.hide();
-        setStatus("Step back until your shoulders and hips are in frame.");
+        setStatus("Stand where the camera can see your shoulders and chest.");
       }
     } catch (error) {
       console.error("detection failed", error);
@@ -154,7 +154,7 @@ async function boot() {
     layout();
 
     await tracker.ensure(setStatus);
-    setStatus("Step back until your shoulders and hips are in frame.");
+    setStatus("Stand where the camera can see your shoulders and chest.");
 
     running = true;
     tick();

@@ -9,8 +9,9 @@
 //
 // So the garment is a grid of triangles carrying the cut-out as its texture,
 // and every frame each vertex is moved to where its part of the cloth belongs
-// on this body. Four points do the work - the two shoulders and the two hips -
-// and everything between them is interpolated.
+// on this body. Four points do the work - the two shoulders and the two hips,
+// on the photographed model and on the customer - and everything between them
+// is interpolated.
 //
 // What this does NOT do is simulate cloth. Nothing swings, and nothing folds
 // that was not already folded in the photograph. For a proof of concept that
@@ -21,18 +22,11 @@ import * as THREE from "three";
 
 // The grid's density. The warp is smooth, so this is about how well the
 // garment follows a bend rather than how detailed it looks: too coarse and a
-// leaning body creases the print into facets.
+// leaning body creases the print into facets. Most of the rows are spent on
+// the skirt, which is usually off the bottom of the frame, so there are more
+// of them than the torso alone would need.
 const ACROSS = 16;
-const DOWN = 24;
-
-// How far below the hips the garment reaches, as a share of the shoulder-to-
-// hip distance. A saree falls to the ankles, which is roughly two and a half
-// torsos down from the hips - usually past the bottom of the frame, and that
-// is fine: what is off-screen is simply not drawn.
-const SKIRT = 2.6;
-
-// The skirt widens as it falls. A saree is not a tube; the pleats open out.
-const FLARE = 0.55;
+const DOWN = 40;
 
 export class Garment {
   constructor(material) {
@@ -47,76 +41,66 @@ export class Garment {
     this.mesh.frustumCulled = false;
     this._v = new THREE.Vector3();
 
-    // Where each vertex sits in the garment's own coordinates, kept because
-    // the plane's own positions are about to be overwritten.
+    // Where each vertex sits in the picture, as a share of its width and
+    // height, kept because the plane's own positions are about to be
+    // overwritten.
     const pos = geometry.attributes.position;
-    this._u = new Float32Array(pos.count);
-    this._t = new Float32Array(pos.count);
+    this._x = new Float32Array(pos.count);
+    this._y = new Float32Array(pos.count);
     for (let i = 0; i < pos.count; i++) {
-      this._u[i] = pos.getX(i) + 0.5; // 0 at the garment's left, 1 at its right
-      this._t[i] = 0.5 - pos.getY(i); // 0 at the shoulder line, 1 at the hem
+      this._x[i] = pos.getX(i) + 0.5; // 0 at the picture's left, 1 at its right
+      this._y[i] = 0.5 - pos.getY(i); // 0 at its top, 1 at its bottom
+    }
+    // And where each sits on the photographed body: `s` across it, 0 at her
+    // left side and 1 at her right, `t` down it, 0 on the shoulder line and 1
+    // on the hip line. Worked out once per saree, in setAnchors.
+    this._s = new Float32Array(pos.count);
+    this._t = new Float32Array(pos.count);
+    this.setAnchors(DEFAULT_ANCHORS);
+  }
+
+  // Place every vertex on the photographed body. The same (s, t) is then put
+  // on the customer's body each frame, so her shoulder lands on the
+  // customer's shoulder whatever the photo's framing, slope or handedness.
+  setAnchors(anchors) {
+    const q = {
+      sl: anchors.shoulderLeft, sr: anchors.shoulderRight,
+      hl: anchors.hipLeft, hr: anchors.hipRight,
+    };
+    for (let i = 0; i < this._x.length; i++) {
+      const [s, t] = bodyAt(q, this._x[i], this._y[i]);
+      this._s[i] = s;
+      this._t[i] = t;
     }
   }
 
-  // `fit` is where the garment's own anchor points have landed on this body:
-  // the two shoulders and the two hips, in world space. `anchors` says where
-  // those same four points sit in the image, so a photograph framed loosely
-  // fits as well as one cropped tight.
-  update({ shoulderLeft, shoulderRight, hipLeft, hipRight }, anchors) {
-    const geometry = this.mesh.geometry;
-    const pos = geometry.attributes.position;
-
-    // The body's own axes. Across is the shoulder line; down is the lean from
-    // shoulders to hips, which is what lets the garment follow someone who is
-    // not standing square to the camera.
+  // `frame` is the customer's two shoulders and two hips, in world space,
+  // named for the customer's own left and right as the anchors are named for
+  // the model's.
+  update({ shoulderLeft, shoulderRight, hipLeft, hipRight }) {
+    const pos = this.mesh.geometry.attributes.position;
     const shoulderMid = shoulderLeft.clone().add(shoulderRight).multiplyScalar(0.5);
     const hipMid = hipLeft.clone().add(hipRight).multiplyScalar(0.5);
-    const down = hipMid.clone().sub(shoulderMid);
-    const torso = down.length();
-    down.normalize();
-
+    const torso = hipMid.clone().sub(shoulderMid);
     const acrossTop = shoulderRight.clone().sub(shoulderLeft);
     const acrossHip = hipRight.clone().sub(hipLeft);
-
-    // The image's own frame, so the warp maps the garment's shoulders to the
-    // body's shoulders rather than the picture's corners to them.
-    const a = anchors ?? DEFAULT_ANCHORS;
-    const imageTorso = Math.max(a.hipY - a.shoulderY, 1e-3);
+    const v = this._v;
 
     for (let i = 0; i < pos.count; i++) {
-      // Where this vertex sits in the picture, and therefore on the body:
-      // `t` counted in torsos below the shoulder line - negative above it,
-      // which is the pallu over the shoulder - and `u` across the picture.
-      const t = (this._t[i] - a.shoulderY) / imageTorso;
-      const u = this._u[i];
-
-      // Across the body, the garment is the shoulder line above the hips and
-      // the hip line below them, widening as it falls.
-      let across;
-      let mid;
+      const s = this._s[i];
+      const t = this._t[i];
       if (t <= 1) {
-        // Above the hips the shoulder line rules, and above the shoulders it
-        // carries on: `t` is negative there and the lerp extrapolates, which
-        // is what keeps the pallu on the shoulder rather than floating.
-
-        across = acrossTop.clone().lerp(acrossHip, t);
-        mid = shoulderMid.clone().lerp(hipMid, t);
+        // Between the shoulder and hip lines, and above the shoulders too,
+        // where the same blend carries on: that is the pallu over the
+        // shoulder, kept on it rather than floating.
+        v.copy(shoulderLeft).addScaledVector(acrossTop, s).multiplyScalar(1 - t);
+        v.addScaledVector(hipLeft, t).addScaledVector(acrossHip, s * t);
       } else {
-        const below = t - 1;
-        across = acrossHip.clone().multiplyScalar(1 + (below / SKIRT) * FLARE);
-        mid = hipMid.clone().addScaledVector(down, below * torso);
+        // Below the hips the cloth hangs from the hip line along the body.
+        // It is not flared: how the skirt opens out is already in the photo.
+        v.copy(hipMid).addScaledVector(acrossHip, s - 0.5).addScaledVector(torso, t - 1);
       }
-
-      // The picture's own left and right edges at this height, mapped onto
-      // the body's width there.
-      const clamped = Math.min(Math.max(t, 0), 1);
-      const uL = lerp(a.shoulderLeftX, a.hipLeftX, clamped);
-      const uR = lerp(a.shoulderRightX, a.hipRightX, clamped);
-      const width = Math.max(uR - uL, 1e-3);
-      const k = (u - uL) / width - 0.5;
-
-      this._v.copy(mid).addScaledVector(across, k);
-      pos.setXYZ(i, this._v.x, this._v.y, this._v.z);
+      pos.setXYZ(i, v.x, v.y, v.z);
     }
 
     pos.needsUpdate = true;
@@ -127,17 +111,44 @@ export class Garment {
   }
 }
 
-const lerp = (a, b, t) => a + (b - a) * t;
+// Where a point of the picture sits on the photographed body: the inverse of
+// the map `update` applies to the customer's. Newton's method on the blend
+// between the shoulder and hip lines, which settles in a handful of steps for
+// any quad a person makes; below the hip line the map is straight, so that
+// part is solved directly.
+function bodyAt({ sl, sr, hl, hr }, x, y) {
+  let s = 0.5;
+  let t = 0.5;
+  for (let k = 0; k < 20; k++) {
+    const topX = sl[0] + s * (sr[0] - sl[0]), topY = sl[1] + s * (sr[1] - sl[1]);
+    const botX = hl[0] + s * (hr[0] - hl[0]), botY = hl[1] + s * (hr[1] - hl[1]);
+    const fx = topX + t * (botX - topX) - x;
+    const fy = topY + t * (botY - topY) - y;
+    const dsx = (1 - t) * (sr[0] - sl[0]) + t * (hr[0] - hl[0]);
+    const dsy = (1 - t) * (sr[1] - sl[1]) + t * (hr[1] - hl[1]);
+    const dtx = botX - topX, dty = botY - topY;
+    const det = dsx * dty - dsy * dtx;
+    if (Math.abs(det) < 1e-9) break;
+    s -= (fx * dty - fy * dtx) / det;
+    t -= (dsx * fy - dsy * fx) / det;
+  }
+  if (t <= 1) return [s, t];
 
-// Where the four anchor points sit in a photograph, as a share of its width
-// and height: the model's shoulders a tenth of the way down, hips at a third.
-// Every entry overrides these with what its own photo measured - the tool
-// prints them - and the numbers here only keep the viewer sane until it does.
+  const mx = (hl[0] + hr[0]) / 2, my = (hl[1] + hr[1]) / 2;
+  const ax = hr[0] - hl[0], ay = hr[1] - hl[1];
+  const dx = mx - (sl[0] + sr[0]) / 2, dy = my - (sl[1] + sr[1]) / 2;
+  const det = ax * dy - ay * dx;
+  const px = x - mx, py = y - my;
+  return [0.5 + (px * dy - py * dx) / det, 1 + (ax * py - ay * px) / det];
+}
+
+// Where the four anchors sit in a photograph when an entry gives none, as
+// shares of its width and height: the model's own left shoulder and hip on
+// the picture's right, since she faces the camera. Every entry overrides
+// these with what its photo measured; they only keep the viewer sane.
 export const DEFAULT_ANCHORS = {
-  shoulderY: 0.1,
-  hipY: 0.36,
-  shoulderLeftX: 0.3,
-  shoulderRightX: 0.7,
-  hipLeftX: 0.32,
-  hipRightX: 0.68,
+  shoulderLeft: [0.66, 0.1],
+  shoulderRight: [0.34, 0.1],
+  hipLeft: [0.63, 0.36],
+  hipRight: [0.37, 0.36],
 };

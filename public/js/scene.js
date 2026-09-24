@@ -6,18 +6,27 @@
 
 import * as THREE from "three";
 import { Garment, DEFAULT_ANCHORS } from "./drape.js";
-import { POSE } from "./tracking.js";
+import { POSE, seen } from "./tracking.js";
 
 // The plane the garment is drawn on, in front of the camera. Its distance is
 // arbitrary; what matters is that the mapping below uses the same number.
 const PLANE = 10;
 
-// How far past the joints the cloth reaches. The pose model puts a shoulder
-// at the joint, which is well inside the body's outline, and a garment fitted
-// exactly between the two shoulders is a garment that leaves both arms bare.
-// Measured against a standing body, a saree covers about a sixth wider than
-// the joints alone.
-const SPREAD = 1.18;
+// Where the hips are when the camera cannot see them - a customer framed from
+// the neck to the stomach, which is how most will stand at a phone. These are
+// body proportions in terms of the pose model's own landmarks, which sit at
+// the joints. They are estimates from average adult proportions, not measured
+// on anyone yet:
+// - the shoulder joints to the hip joints is about one and a half times the
+//   width between the shoulder joints (about 50 cm against 34 cm);
+// - the same distance is about two and a half times the drop from the mouth to
+//   the shoulder line (about 50 cm against 19 cm);
+// - the hip joints sit about seven tenths as far apart as the shoulders.
+// The width reading shrinks as the customer turns away and the neck reading
+// does not, so the longer of the two is taken.
+const TORSO_PER_SHOULDERS = 1.45;
+const TORSO_PER_NECK = 2.6;
+const HIPS_PER_SHOULDERS = 0.7;
 
 // How much of the reading is taken each frame. The pose model wobbles a few
 // pixels between frames and on something the size of a saree that reads as the
@@ -83,6 +92,7 @@ export class Stage {
   // the list does not refetch.
   wear(entry) {
     this.anchors = entry.anchors ?? DEFAULT_ANCHORS;
+    this.garment.setAnchors(this.anchors);
     const cached = this._textures.get(entry.image);
     if (cached) {
       this.material.map = cached;
@@ -129,12 +139,13 @@ export class Stage {
   }
 
   // Fit the garment to a body. Called on every frame that has one.
-  update(landmarks) {
+  update(landmarks, hipsSeen) {
     const read = (k) => this._toWorld(landmarks[k], new THREE.Vector3());
     const shoulderLeft = read(POSE.SHOULDER_LEFT);
     const shoulderRight = read(POSE.SHOULDER_RIGHT);
-    const hipLeft = read(POSE.HIP_LEFT);
-    const hipRight = read(POSE.HIP_RIGHT);
+    const { hipLeft, hipRight } = hipsSeen
+      ? { hipLeft: read(POSE.HIP_LEFT), hipRight: read(POSE.HIP_RIGHT) }
+      : this._hipsFrom(shoulderLeft, shoulderRight, landmarks);
 
     // The shop's own fit, before damping: `scale` opens the garment out from
     // the body's middle, `offsetY` slides it up and down the torso.
@@ -144,7 +155,7 @@ export class Stage {
     );
     const raw = { shoulderLeft, shoulderRight, hipLeft, hipRight };
     for (const key of Object.keys(raw)) {
-      raw[key].sub(mid).multiplyScalar(SPREAD * this.settings.scale).add(mid);
+      raw[key].sub(mid).multiplyScalar(this.settings.scale).add(mid);
       raw[key].y -= this.settings.offsetY * torso;
     }
 
@@ -154,8 +165,30 @@ export class Stage {
       for (const key of Object.keys(raw)) this._fit[key].lerp(raw[key], EASE);
     }
 
-    this.garment.update(this._fit, this.anchors);
+    this.garment.update(this._fit);
     this.visible = true;
+  }
+
+  // The hips of a body whose hips are out of frame: straight down from the
+  // shoulders, square to the shoulder line, at the proportions above.
+  _hipsFrom(shoulderLeft, shoulderRight, landmarks) {
+    const across = shoulderRight.clone().sub(shoulderLeft);
+    const mid = shoulderLeft.clone().add(shoulderRight).multiplyScalar(0.5);
+    const down = new THREE.Vector3(across.y, -across.x, 0).normalize();
+    if (down.y > 0) down.negate();
+
+    let torso = TORSO_PER_SHOULDERS * across.length();
+    const ml = landmarks[POSE.MOUTH_LEFT];
+    const mr = landmarks[POSE.MOUTH_RIGHT];
+    if (seen(ml) && seen(mr)) {
+      const mouth = this._toWorld(ml).add(this._toWorld(mr)).multiplyScalar(0.5);
+      const neck = mid.clone().sub(mouth).dot(down);
+      torso = Math.max(torso, TORSO_PER_NECK * neck);
+    }
+
+    const hipMid = mid.addScaledVector(down, torso);
+    const half = across.multiplyScalar(HIPS_PER_SHOULDERS / 2);
+    return { hipLeft: hipMid.clone().sub(half), hipRight: hipMid.clone().add(half) };
   }
 
   // Nobody in frame: the garment goes away rather than hanging in the air, and

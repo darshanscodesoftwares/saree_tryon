@@ -27,12 +27,19 @@ export const POSE = {
   KNEE_LEFT: 25,
   KNEE_RIGHT: 26,
   NOSE: 0,
+  MOUTH_LEFT: 9,
+  MOUTH_RIGHT: 10,
 };
 
 // How sure the model has to be about a landmark before it is used. Below this
 // it is guessing at a joint it cannot see - an arm behind the back, hips out
 // of frame - and a guessed hip drags the whole garment with it.
 const SURE = 0.6;
+
+// A landmark read confidently and inside the camera frame. The model will
+// place a hip below the bottom edge and still call it fairly visible; that is
+// an extrapolation, and it swings with every breath.
+export const seen = (m) => Boolean(m) && (m.visibility ?? 1) >= SURE && m.y >= 0 && m.y <= 1;
 
 export class Tracker {
   constructor() {
@@ -64,21 +71,20 @@ export class Tracker {
     }
   }
 
-  // Returns the landmarks, or null when nobody is in frame. The caller hides
-  // the garment on null rather than leaving it hanging in the air.
+  // Returns the landmarks and whether the hips are among them, or null when
+  // there is nobody to dress. The caller hides the garment on null rather
+  // than leaving it hanging in the air.
   detect(video, timestampMs) {
     if (!this.pose) return null;
     const result = this.pose.detectForVideo(video, timestampMs);
     const marks = result?.landmarks?.[0];
     if (!marks) return null;
 
-    // The shoulders and hips are the garment's whole frame. Without all four
-    // read confidently there is nothing to hang it on, and half a frame reads
-    // worse than no garment at all.
-    for (const k of [POSE.SHOULDER_LEFT, POSE.SHOULDER_RIGHT, POSE.HIP_LEFT, POSE.HIP_RIGHT]) {
-      const m = marks[k];
-      if (!m || (m.visibility ?? 1) < SURE) return null;
-    }
-    return marks;
+    // The shoulders are the one thing the garment cannot do without. The
+    // hips are welcome but optional: a customer at a phone is usually framed
+    // neck to stomach, and the stage works out where the hips would be.
+    if (!seen(marks[POSE.SHOULDER_LEFT]) || !seen(marks[POSE.SHOULDER_RIGHT])) return null;
+    const hipsSeen = seen(marks[POSE.HIP_LEFT]) && seen(marks[POSE.HIP_RIGHT]);
+    return { marks, hipsSeen };
   }
 }

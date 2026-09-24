@@ -2,14 +2,13 @@
 //
 // An entry is a photograph of the garment being worn, cut out of its shot, and
 // the four anchor points that say where that model's shoulders and hips are in
-// the picture. `tools/garment_cutout.py` writes the image and prints the
+// the picture: [x, y] as shares of its width and height, at the JOINTS, the
+// way the pose model reads the customer, and named for her own left and right.
+// Cloth that reaches past her joints in the photo reaches past the
+// customer's. `tools/garment_cutout.py` writes the image and prints the
 // anchors; they are recorded here so the cut can be remade from the photo the
 // shop keeps.
 //
-// `drape` is how the cloth behaves on a body that is not the photographed one:
-// how far the hem falls and how much the skirt opens out. Left alone it takes
-// the defaults in drape.js.
-
 export const SAREES = [
   {
     id: "demo-kanchipuram",
@@ -19,14 +18,16 @@ export const SAREES = [
     // so the viewer runs before the shop's own photos arrive. It is a flat
     // drape with a border and a pallu - enough to see the fit working, and
     // not a real garment.
+    // Its anchors were first set at the cloth's edges, when the viewer
+    // spread every garment a sixth past the joints; these are the same points
+    // pulled a sixth inward. Left is on the picture's left, as if it were a
+    // mirror photo, which keeps its pallu where it always was.
     image: "textures/demo-kanchipuram.png",
     anchors: {
-      shoulderY: 0.085,
-      hipY: 0.34,
-      shoulderLeftX: 0.3,
-      shoulderRightX: 0.7,
-      hipLeftX: 0.28,
-      hipRightX: 0.72,
+      shoulderLeft: [0.331, 0.085],
+      shoulderRight: [0.669, 0.085],
+      hipLeft: [0.314, 0.34],
+      hipRight: [0.686, 0.34],
     },
   },
 ];

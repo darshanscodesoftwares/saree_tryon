@@ -23,9 +23,9 @@ What it does:
    a photo where an arm or a shoulder shows beside the cloth. It is a blunt
    instrument and it will eat a skin-toned border, so it is off by default.
 3. Measures. `--anchors` is four points in photo pixels - left shoulder, right
-   shoulder, left hip, right hip, the model's own left and right - and they
-   are written out as shares of the picture, which is what the viewer warps
-   against.
+   shoulder, left hip, right hip, the model's own left and right, at the
+   joints - and they are written out as shares of the picture, which is what
+   the viewer warps against.
 
 Needs Pillow and numpy.
 """
@@ -145,12 +145,10 @@ def main():
     tags: {{ fabric: "", border: "", colour: "" }},
     image: "textures/{args.out.split('/')[-1]}",
     anchors: {{
-      shoulderY: {(fy(sly) + fy(sry)) / 2:.3f},
-      hipY: {(fy(hly) + fy(hry)) / 2:.3f},
-      shoulderLeftX: {fx(slx):.3f},
-      shoulderRightX: {fx(srx):.3f},
-      hipLeftX: {fx(hlx):.3f},
-      hipRightX: {fx(hrx):.3f},
+      shoulderLeft: [{fx(slx):.3f}, {fy(sly):.3f}],
+      shoulderRight: [{fx(srx):.3f}, {fy(sry):.3f}],
+      hipLeft: [{fx(hlx):.3f}, {fy(hly):.3f}],
+      hipRight: [{fx(hrx):.3f}, {fy(hry):.3f}],
     }},
   }},""")
 

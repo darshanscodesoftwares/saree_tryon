@@ -49,26 +49,39 @@ that was not already in the photograph.
 
 ## How the fit works
 
-`public/js/tracking.js` runs MediaPipe's pose model and reads four landmarks:
-the two shoulders and the two hips. That is the body's frame - its width, its
-height and its lean - and it is all the garment needs.
+`public/js/tracking.js` runs MediaPipe's pose model and reads the two
+shoulders and, when they are in frame, the two hips. That is the body's frame -
+its width, its height and its lean - and it is all the garment needs.
 
-`public/js/drape.js` carries the cut-out on a grid of triangles, and every
-frame moves each vertex to where its part of the cloth belongs on this body.
-Above the hips the shoulder line rules; below them the cloth falls along the
-body's own axis and opens out, because a saree is not a tube. Above the
-shoulders the same interpolation carries on and keeps the pallu on the
-shoulder.
+Most customers will stand at a phone framed from the neck to the stomach, with
+the hips below the edge. Then `public/js/scene.js` puts the hips where they
+would be: straight down from the shoulders, square to them, at average adult
+proportions measured against both the shoulder width and the drop from the
+mouth to the shoulders. The second of those holds when the customer turns and
+the shoulders foreshorten.
 
-Two things are worth knowing about the numbers:
+`public/js/drape.js` carries the cut-out on a grid of triangles. Each vertex
+is placed once on the photographed body - how far across it, how far down
+from the shoulder line to the hip line - and every frame the same place is
+found on the customer's body. So her left shoulder lands on the customer's
+left shoulder whatever the photo's framing or slope, and the pallu sits on the
+same shoulder it was draped over. Below the hips the cloth hangs along the
+body's axis as it did in the photo.
 
-- **The garment reaches past the joints.** The pose model puts a shoulder at
-  the joint, well inside the body's outline, so a garment fitted exactly
-  between the two shoulders leaves both arms bare. It is spread about a sixth
-  wider.
-- **Four landmarks or none.** If any of the four is read with low confidence -
-  hips out of frame, an arm across the body - the garment is hidden rather
-  than hung on a guess. Half a frame reads worse than no garment.
+Two things are worth knowing:
+
+- **Anchors are at the joints.** The pose model puts a shoulder at the joint,
+  well inside the body's outline, so the anchors in a photo go at the model's
+  joints too. The cloth that reaches past her joints in the photo then reaches
+  past the customer's; a garment fitted with its EDGES on the joints leaves
+  both arms bare.
+- **Shoulders or nothing.** If either shoulder is read with low confidence,
+  the garment is hidden rather than hung on a guess. Half a frame reads worse
+  than no garment.
+
+`public/fit-test.html` shows the fit on a synthetic body - square-on and
+turned, framed to the stomach and with the hips in frame - for checking a
+change without a camera.
 
 ## The library
 
@@ -78,8 +91,9 @@ that say where the photographed model's shoulders and hips are in the picture.
 
 ## What is not here yet
 
-- Real sarees. The one in the list is drawn by `tools/make_demo.py` so the
-  viewer runs; it is a stand-in and looks it.
+- A real photo. The mustard saree is from a generated image on an invisible
+  form, turned three-quarters, so its anchors are estimated rather than
+  measured; the demo is drawn by `tools/make_demo.py`. Both are stand-ins.
 - Occlusion. An arm in front of the body is drawn behind the cloth, because
   nothing here knows the arm is nearer. Pose gives a depth per landmark that
   could carry this.
