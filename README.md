@@ -14,7 +14,8 @@ cd saree_tryon
 npm start
 ```
 
-Open <http://localhost:5190> and allow the camera. No install step and no
+Open <http://localhost:5190> and allow the camera. If that port is taken,
+`PORT=5191 npm start` (and `HTTPS_PORT` for the phone one). No install step and no
 dependencies: three.js and the tracking model come from a CDN, and a stand-in
 saree is in the box so it runs before any photo arrives.
 

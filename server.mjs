@@ -37,14 +37,18 @@ async function serve(req, res) {
   }
 }
 
-createServer(serve).listen(5190, () => console.log("http://localhost:5190"));
+// Overridable so a second copy can run while the first still holds the port.
+const PORT = Number(process.env.PORT) || 5190;
+const HTTPS_PORT = Number(process.env.HTTPS_PORT) || 5453;
+
+createServer(serve).listen(PORT, () => console.log(`http://localhost:${PORT}`));
 
 if (existsSync("certs/cert.pem") && existsSync("certs/key.pem")) {
   const options = { cert: readFileSync("certs/cert.pem"), key: readFileSync("certs/key.pem") };
-  createSecureServer(options, serve).listen(5453, () => {
+  createSecureServer(options, serve).listen(HTTPS_PORT, () => {
     const lan = Object.values(networkInterfaces())
       .flat()
       .find((n) => n && n.family === "IPv4" && !n.internal);
-    console.log(`https://${lan ? lan.address : "localhost"}:5453  (share this with a phone)`);
+    console.log(`https://${lan ? lan.address : "localhost"}:${HTTPS_PORT}  (share this with a phone)`);
   });
 }
