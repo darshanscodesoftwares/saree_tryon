@@ -11,6 +11,31 @@
 //
 export const SAREES = [
   {
+    id: "yellow-ikat",
+    name: "Mustard, ikat border",
+    tags: { fabric: "silk blend", border: "ikat", colour: "mustard" },
+    // python3 tools/garment_cutout.py photos/yellowSaree.png public/textures/yellow-ikat.png \
+    //     --plain --anchors 560,75 185,95 420,695 160,705 --name yellow-ikat
+    //
+    // The anchors are ESTIMATED, not measured. The photo is a generated image
+    // of the saree on an invisible form, turned about three-quarters, with no
+    // arms, neck or blouse, so there are no joints to read. Her right shoulder
+    // is put above her right side, where the arm would hang, and her left
+    // under the pallu's peak, nearly level: the neckline's steep diagonal is
+    // the pallu crossing the chest, not the body tilting. The hips are a
+    // little below the pleats' tuck, which sits at the navel, and inside the
+    // belly's outline. Being turned, the photo's shoulders read narrow, so the
+    // garment comes out wider than it hung on her. Replace with a photo taken
+    // on a person, front-on.
+    image: "textures/yellow-ikat.png",
+    anchors: {
+      shoulderLeft: [0.593, 0.04],
+      shoulderRight: [0.189, 0.052],
+      hipLeft: [0.442, 0.418],
+      hipRight: [0.162, 0.424],
+    },
+  },
+  {
     id: "demo-kanchipuram",
     name: "Demo, Kanchipuram silk",
     tags: { fabric: "silk", border: "zari", colour: "maroon" },
@@ -36,6 +61,6 @@ export const byId = (id) => SAREES.find((s) => s.id === id) ?? null;
 
 // What the dropdown lands on when the viewer opens. Named rather than left to
 // whichever entry sits first, so reordering the list changes nothing.
-export const DEFAULT_SAREE = "demo-kanchipuram";
+export const DEFAULT_SAREE = "yellow-ikat";
 
 export const defaultSaree = () => byId(DEFAULT_SAREE) ?? SAREES[0] ?? null;
