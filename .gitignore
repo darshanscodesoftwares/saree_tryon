@@ -1,0 +1,15 @@
+# ---------------------------------------------------------------------------
+# Source photos stay local. Only the cut-out garments made from them, in
+# public/textures/, are committed; the command that remakes each one is
+# recorded in its library entry.
+# ---------------------------------------------------------------------------
+photos/*
+!photos/README.md
+
+# Certificates for serving HTTPS on the LAN, so a phone can use its camera.
+certs/
+*.pem
+
+node_modules/
+.DS_Store
+__pycache__/

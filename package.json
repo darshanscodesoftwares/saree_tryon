@@ -1,0 +1,10 @@
+{
+  "name": "saree-tryon",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Camera try-on for sarees. Proof of concept.",
+  "scripts": {
+    "start": "node server.mjs"
+  }
+}
