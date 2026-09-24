@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fit test</title>
+<!--
+  The fit on a synthetic body, for checking a change to the warp without a
+  person in front of a camera. Each panel hands Stage.update() a made-up set of
+  pose landmarks and draws a schematic body behind the garment at the same
+  coordinates. ?saree=<id> picks the entry; the default one otherwise.
+-->
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js" } }
+</script>
+<style>
+  body { margin: 0; background: #222; color: #ddd; font: 13px system-ui, sans-serif; }
+  #grid { display: flex; gap: 12px; padding: 12px; }
+  figure { margin: 0; }
+  .panel { position: relative; width: 300px; height: 400px; background: #6f7a80; }
+  .panel canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  figcaption { padding: 6px 2px; }
+</style>
+</head>
+<body>
+<div id="grid"></div>
+<script type="module">
+import { Stage } from "./js/scene.js";
+import { POSE } from "./js/tracking.js";
+import { byId, defaultSaree } from "./js/library.js";
+
+const W = 300, H = 400;
+const saree = byId(new URLSearchParams(location.search).get("saree")) ?? defaultSaree();
+
+// A body in camera pixels, as the unmirrored camera sees it: the subject's own
+// left is on the image's right. `yaw` turns her away (the shoulders
+// foreshorten), `tilt` drops her left shoulder, `lean` moves her hips sideways
+// against her shoulders.
+function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, hipsInFrame }) {
+  const w = width * Math.cos(yaw * Math.PI / 180);
+  const dy = Math.tan(tilt * Math.PI / 180) * w / 2;
+  const torso = width * 1.45, neck = width * 0.56;
+  const hw = w * 0.7;
+  const px = {
+    [POSE.SHOULDER_LEFT]: [cx + w / 2, sy + dy],
+    [POSE.SHOULDER_RIGHT]: [cx - w / 2, sy - dy],
+    [POSE.HIP_LEFT]: [cx + lean + hw / 2, sy + torso],
+    [POSE.HIP_RIGHT]: [cx + lean - hw / 2, sy + torso],
+    [POSE.MOUTH_LEFT]: [cx + w * 0.06 + yaw * 0.6, sy - neck],
+    [POSE.MOUTH_RIGHT]: [cx - w * 0.06 + yaw * 0.6, sy - neck],
+    [POSE.NOSE]: [cx + yaw * 0.7, sy - neck - width * 0.12],
+  };
+  const marks = Array.from({ length: 33 }, () => ({ x: 0, y: 0, z: 0, visibility: 0 }));
+  for (const [k, [x, y]] of Object.entries(px)) marks[k] = { x: x / W, y: y / H, z: 0, visibility: 0.99 };
+  const hipsSeen = hipsInFrame && marks[POSE.HIP_LEFT].y <= 1;
+  if (!hipsSeen) marks[POSE.HIP_LEFT].visibility = marks[POSE.HIP_RIGHT].visibility = 0.1;
+  return { marks, hipsSeen, px };
+}
+
+// Head, neck, the shoulders' outline past the joints, arms and a torso, drawn
+// mirrored as the app shows the camera. Where the hips are out of frame the
+// torso is drawn to where they would be.
+function drawBody(ctx, { px }) {
+  const m = ([x, y]) => [W - x, y];
+  const sl = m(px[POSE.SHOULDER_LEFT]), sr = m(px[POSE.SHOULDER_RIGHT]);
+  const hl = m(px[POSE.HIP_LEFT]), hr = m(px[POSE.HIP_RIGHT]);
+  const nose = m(px[POSE.NOSE]);
+  const w = Math.hypot(sl[0] - sr[0], sl[1] - sr[1]);
+  const out = (p, q, k) => [p[0] + (p[0] - q[0]) * k, p[1] + (p[1] - q[1]) * k];
+  ctx.fillStyle = "#c79a7a";
+  ctx.strokeStyle = "#5a3a2a";
+  ctx.lineWidth = 2;
+  const poly = (pts) => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill(); ctx.stroke(); };
+  const mid = [(sl[0] + sr[0]) / 2, (sl[1] + sr[1]) / 2];
+  poly([[mid[0] - w * 0.12, mid[1]], [mid[0] - w * 0.1, nose[1] + w * 0.1], [mid[0] + w * 0.1, nose[1] + w * 0.1], [mid[0] + w * 0.12, mid[1]]]);
+  ctx.beginPath(); ctx.ellipse(nose[0], nose[1] - w * 0.05, w * 0.22, w * 0.29, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  const ol = out(sl, sr, 0.17), or = out(sr, sl, 0.17);
+  for (const [s, o] of [[sl, ol], [sr, or]]) poly([[o[0], o[1] - w * 0.04], [o[0] + (o[0] - s[0]) * 0.3, o[1] + w * 1.3], [s[0], s[1] + w * 1.3], [s[0], s[1]]]);
+  poly([ol, or, out(hr, hl, 0.35), out(hl, hr, 0.35)]);
+  // The joints themselves, which is what the garment is fitted to.
+  ctx.fillStyle = "#0af";
+  for (const [x, y] of [sl, sr, hl, hr]) { ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
+}
+
+const CASES = [
+  ["Square-on, neck to stomach", { cx: 150, sy: 150, width: 150, hipsInFrame: false }],
+  ["Turned 35°, leaning, neck to stomach", { cx: 160, sy: 150, width: 150, yaw: 35, tilt: 8, lean: -20, hipsInFrame: false }],
+  ["Square-on, hips in frame", { cx: 150, sy: 110, width: 110, hipsInFrame: true }],
+  ["Turned 35°, leaning, hips in frame", { cx: 155, sy: 110, width: 110, yaw: 35, tilt: 8, lean: -25, hipsInFrame: true }],
+];
+
+const grid = document.getElementById("grid");
+const stages = [];
+for (const [label, spec] of CASES) {
+  const fig = document.createElement("figure");
+  fig.innerHTML = `<div class="panel"><canvas class="bg" width="${W}" height="${H}"></canvas><canvas class="gl"></canvas></div><figcaption>${label}</figcaption>`;
+  grid.appendChild(fig);
+  const b = body(spec);
+  drawBody(fig.querySelector(".bg").getContext("2d"), b);
+  const stage = new Stage(fig.querySelector(".gl"));
+  stage.resize(W, H);
+  stage.setVideoSize(W, H);
+  stage.wear(saree);
+  stages.push([stage, b]);
+}
+
+// The texture arrives asynchronously; draw once it has.
+const wait = () => stages.every(([s]) => s.material.map?.image) ? draw() : setTimeout(wait, 50);
+function draw() {
+  for (const [stage, b] of stages) { stage.update(b.marks, b.hipsSeen); stage.render(); }
+  document.title = "Fit test - ready";
+}
+wait();
+</script>
+</body>
+</html>

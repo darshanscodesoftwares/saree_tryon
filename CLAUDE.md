@@ -18,10 +18,10 @@ two things worth checking after any change to the fit:
 - **The app boots.** Headless Chrome with `--use-fake-device-for-media-stream`
   gives a camera with no person in it, which is enough to catch a page error,
   a missing export or a dropdown that never fills.
-- **The warp fits a body.** There is no body in a headless browser, so build a
-  page that imports `Stage` from `js/scene.js`, hands `update()` a synthetic
-  set of pose landmarks, draws a schematic body behind it at the same
-  coordinates, and screenshots the result. Test a square-on body AND a turned
+- **The warp fits a body.** There is no body in a headless browser, so
+  `public/fit-test.html` imports `Stage` from `js/scene.js`, hands `update()`
+  a synthetic set of pose landmarks, draws a schematic body behind it at the
+  same coordinates, and is screenshotted (`?saree=<id>` picks the entry). Test a square-on body AND a turned
   one - a warp can look right head-on and fall apart the moment someone leans.
   Serve that page from the app's own origin (drop it in `public/`), or the
   module import is blocked cross-origin.
