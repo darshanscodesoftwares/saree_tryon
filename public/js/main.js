@@ -25,8 +25,22 @@ function setStatus(text, kind = "") {
   statusEl.style.display = text ? "block" : "none";
 }
 
+// The stage takes the camera's own shape, as large as the window allows.
+// Squeezed into any other shape, `object-fit: cover` crops the difference off,
+// and a laptop's landscape camera in a portrait box loses more than half its
+// width - which reads as the camera being zoomed right in.
 function layout() {
   const stageEl = el("stage");
+  const viewer = el("viewer");
+  if (video.videoWidth && video.videoHeight) {
+    const pad = 32;
+    const aspect = video.videoWidth / video.videoHeight;
+    const room = { w: viewer.clientWidth - pad, h: innerHeight - pad };
+    const w = Math.min(room.w, room.h * aspect);
+    stageEl.style.maxWidth = "none";
+    stageEl.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+    stageEl.style.width = `${Math.floor(w)}px`;
+  }
   stage.resize(stageEl.clientWidth, stageEl.clientHeight);
   stage.setVideoSize(video.videoWidth, video.videoHeight);
 }
@@ -106,6 +120,8 @@ function bindControls() {
   });
 
   addEventListener("resize", layout);
+  // A phone turned on its side hands over a frame of the other shape.
+  video.addEventListener("resize", layout);
 }
 
 function tick() {

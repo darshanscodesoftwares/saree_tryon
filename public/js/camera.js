@@ -5,8 +5,11 @@ export async function startCamera(video) {
     throw new Error("This browser will not give the page a camera.");
   }
 
+  // Only a width is asked for. Asking for a shape as well - 4:3 from a 16:9
+  // sensor - makes the camera crop its sides to fit, and the picture narrows
+  // to less of the room.
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } },
+    video: { facingMode: "user", width: { ideal: 1920 } },
     audio: false,
   });
 

@@ -20,6 +20,8 @@ body {
 
 #viewer { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
 
+/* Sized in main.js to the camera's own shape, so none of the picture is
+   cropped away; this is only what shows before the camera starts. */
 #stage {
   position: relative;
   width: 100%;
