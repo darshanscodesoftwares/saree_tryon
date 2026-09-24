@@ -5,7 +5,8 @@
 // the picture: [x, y] as shares of its width and height, at the JOINTS, the
 // way the pose model reads the customer, and named for her own left and right.
 // Cloth that reaches past her joints in the photo reaches past the
-// customer's. `tools/garment_cutout.py` writes the image and prints the
+// customer's. `free`, where given, outlines what may hang past the customer's
+// outline - the pallu off the shoulder - where the rest is clipped to it. `tools/garment_cutout.py` writes the image and prints the
 // anchors; they are recorded here so the cut can be remade from the photo the
 // shop keeps.
 //
@@ -14,26 +15,29 @@ export const SAREES = [
     id: "yellow-ikat",
     name: "Mustard, ikat border",
     tags: { fabric: "silk blend", border: "ikat", colour: "mustard" },
-    // python3 tools/garment_cutout.py photos/yellowSaree.png public/textures/yellow-ikat.png \
-    //     --plain --anchors 560,75 185,95 420,695 160,705 --name yellow-ikat
+    // python3 tools/garment_cutout.py photos/measuredSaree.png public/textures/yellow-ikat.png \
+    //     --plain --skin --hair 260,240,430,480 \
+    //     --neck 200,325 290,318 390,345 430,358 470,362 520,336 590,298 700,290 760,300 \
+    //     --free 680,300 800,300 800,1370 595,1370 610,1000 655,800 665,450 \
+    //     --anchors 614,333 349,353 542,755 406,762 --name yellow-ikat
     //
-    // The anchors are ESTIMATED, not measured. The photo is a generated image
-    // of the saree on an invisible form, turned about three-quarters, with no
-    // arms, neck or blouse, so there are no joints to read. Her right shoulder
-    // is put above her right side, where the arm would hang, and her left
-    // under the pallu's peak, nearly level: the neckline's steep diagonal is
-    // the pallu crossing the chest, not the body tilting. The hips are a
-    // little below the pleats' tuck, which sits at the navel, and inside the
-    // belly's outline. Being turned, the photo's shoulders read narrow, so the
-    // garment comes out wider than it hung on her. Replace with a photo taken
-    // on a person, front-on.
+    // The anchors are where the pose model itself puts her joints, read by
+    // running public/pose-test.html on the photo - the same model that will
+    // read the customer, so the two agree on what "shoulder" means. Placed
+    // by eye they were a quarter wider at the shoulders and over half again
+    // at the hips, and the cloth came out squeezed. Her hair over her right
+    // shoulder is taken out and the blouse filled from its own print; her
+    // midriff is left open.
     image: "textures/yellow-ikat.png",
     anchors: {
-      shoulderLeft: [0.593, 0.04],
-      shoulderRight: [0.189, 0.052],
-      hipLeft: [0.442, 0.418],
-      hipRight: [0.162, 0.424],
+      shoulderLeft: [0.747, 0.027],
+      shoulderRight: [0.173, 0.042],
+      hipLeft: [0.591, 0.347],
+      hipRight: [0.297, 0.352],
     },
+    // The pallu where it hangs down beside her left arm, free to fall past the
+    // customer's outline.
+    free: [[0.89, 0.002], [1.149, 0.002], [1.149, 0.814], [0.706, 0.814], [0.738, 0.533], [0.835, 0.381], [0.857, 0.115]],
   },
   {
     id: "demo-kanchipuram",
