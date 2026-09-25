@@ -53,7 +53,9 @@ const BODY_PAD = 0.25;
 // where repeating the edge made streaks. The mirror swings up and down as it
 // goes out, by up to BODY_SWAY rows, because a flower mirrored straight
 // beside itself made a butterfly the eye went straight to; gliding steadily
-// down instead carried the waist belt up the customer's side in a sash. It
+// down instead carried the waist belt up the customer's side in a sash; at 16
+// rows it left a saw-tooth wherever the cloth changed from one print to
+// another. It
 // starts BODY_INSET columns in from the edge and passes over pixels darker
 // than BODY_DIM of the row's own median: the side of a torso in the photo is
 // its shadow, and the mustard saree's pallu side, mirrored, was a brown band
@@ -73,10 +75,20 @@ const BODY_PAD = 0.25;
 // so does dim cloth at a row's end, up to BODY_SHADE of the row's width in:
 // the side of her body turning from the light, which with the arms down is
 // under the customer's arm, and with them held out was a dark band down the
-// customer's side. The mirror then carries lit cloth out over it. Guesses,
-// by eye.
+// customer's side. The mirror then carries lit cloth out over it.
+//
+// Each row is mirrored on its own, so wherever a row's edge jumps from the
+// next row's - the end of the belt, where a forearm was taken out - the
+// filled cloth came out in horizontal bands with hard lines between. What is
+// filled, and only that, is softened over BODY_SOFTEN rows and BODY_SOFTEN_X
+// columns either way; the photo's own cloth is left sharp. Softened down the
+// rows alone, over five, the bands became vertical streaks; a little both
+// ways reads as cloth turning away from the camera at the body's sides,
+// which it is. Guesses, by eye.
 const BODY_FADE = 0.1;
-const BODY_SWAY = 16;
+const BODY_SOFTEN = 3;
+const BODY_SOFTEN_X = 2;
+const BODY_SWAY = 10;
 const BODY_INSET = 3;
 const SHADOW_REACH = 0.12;
 const BODY_SLIVER = 8;
@@ -116,33 +128,46 @@ const WIDEN_FROM = 0.75;
 // rows, the side of the body next to it turned with the arm and zig-zagged
 // with the hands on the hips. SLEEVE_BLEND only softens the line.
 //
-// Along the arm the turn starts at the joint, over SLEEVE_CAP below it, and
-// nothing above it turns: cloth level with the joint on the neck side,
-// turned with an arm going up, rose toward the chin. Below the hem it lets go
-// over SLEEVE_FADE, centred on the hem, so the cloth under the sleeve stays
-// with the body. Those two are guesses.
+// Along the arm the sleeve starts at the joint, over SLEEVE_CAP below it, and
+// nothing above it on the neck side is sleeve: cloth level with the joint
+// there, carried up with a raised arm, rose toward the chin. On the outer
+// side it starts SLEEVE_CAP_UP higher, taking the top of the shoulder, which
+// a real sleeve's seam goes over: cut square at the joint, a sleeve was a box
+// with a corner standing proud of the shoulder. Below the hem it lets go over
+// SLEEVE_FADE, centred on the hem, so the cloth under the sleeve stays with
+// the body. SLEEVE_BLEND softens the sleeve's inner edge against the body
+// layer beneath it. All guesses, by eye.
 const SLEEVE_REACH = 0.1;
-const SLEEVE_BLEND = 0.05;
+const SLEEVE_BLEND = 0.08;
 const SLEEVE_CAP = 0.1;
+const SLEEVE_CAP_UP = 0.08;
 const SLEEVE_FADE = 0.15;
 
-// The most a sleeve turns. Past this a real short sleeve bunches on the
-// shoulder rather than following the arm up, and the cloth here, turned
-// further, only smeared. A guess.
-const SWING_MAX = (115 * Math.PI) / 180;
+// Each sleeve is laid along the customer's own upper arm - her joint on
+// theirs, her elbow on theirs - and widened to the arm as the outline shows
+// it, SLEEVE_FIT more for the cloth's thickness: a man's shirt sleeve is
+// wider than a woman's bare arm, and a sleeve only as wide as hers left his
+// showing round it. Each side of the arm is widened on its own, since the
+// inner side can only be seen when the arm is away from the body.
+//
+// The inner side is not her cloth stretched: in toward her body from her
+// arm's line the photo shows her armpit and the saree's edge, and stretched
+// over the underside of a raised arm it was a pale band. The sleeve's own
+// outer half is laid over it instead, mirrored across the arm's line - the
+// `under` layer - so the arm is in sleeve all the way round. Kept
+// between SLEEVE_WIDEST and a little under the photo's own proportions, so a
+// chair beside the arm does not become sleeve. Guesses.
+const SLEEVE_FIT = 0.12;
+const SLEEVE_WIDEST = 2;
 
 // An upper arm pointing at the camera reads shorter than this share of the
-// shoulder width, and its direction is noise: the sleeve then keeps its last
-// swing, letting it go slowly - STUB_RETURN of it a frame, most of it in a
-// few seconds - so a sleeve cannot stay frozen at some odd angle for as long
-// as the arm is held so. Both guesses.
+// shoulder width, and its direction is noise: the sleeve then keeps the last
+// direction it had. A guess.
 const SLEEVE_STUB = 0.2;
-const STUB_RETURN = 0.01;
 
-// How much of a change in a sleeve's swing is taken per frame, on top of the
-// elbow's own damping in scene.js: the sleeve's print is where a shiver shows
-// most. A guess.
-const SWING_EASE = 0.3;
+// How much of a change in a sleeve's width is taken per frame: the outline's
+// edge round an arm flickers. A guess.
+const WIDTH_EASE = 0.15;
 
 // A grid of the picture - `width` of it, centred, so a width over 1 reaches
 // past its sides - with each vertex's place in the picture, as shares of its
@@ -180,8 +205,9 @@ function grid(width, across, material) {
 }
 
 export class Garment {
-  // `material` draws the body layer and `sleeveMaterial` the sleeves.
-  constructor(material, sleeveMaterial = material) {
+  // `material` draws the body layer, `sleeveMaterial` the sleeves, and
+  // `underMaterial` their mirrored undersides.
+  constructor(material, sleeveMaterial = material, underMaterial = sleeveMaterial) {
     this.body = grid(1 + 2 * BODY_PAD, Math.round(ACROSS * (1 + 2 * BODY_PAD)), material);
     // Where each body vertex sits on the customer's body, (s, t), rewritten
     // every frame: the shader cuts the body layer off at the customer's
@@ -190,11 +216,17 @@ export class Garment {
     this.body.mesh.geometry.setAttribute("aBody", new THREE.BufferAttribute(this._bodyST, 2));
     this.body.mesh.geometry.attributes.aBody.setUsage(THREE.DynamicDrawUsage);
     this.sleeve = grid(1, ACROSS, sleeveMaterial);
+    this.under = grid(1, ACROSS, underMaterial);
     this.mesh = this.body.mesh;
     this.sleeveMesh = this.sleeve.mesh;
+    this.underMesh = this.under.mesh;
     // The sleeves are drawn after the body, so that an arm across it lies
-    // over it.
+    // over it, and their undersides last: the sleeve pass reaches a little
+    // past the arm's line, where the photo may have something that is not
+    // sleeve - the mustard saree's pallu runs right beside her sleeve - and
+    // the underside covers that with sleeve.
     this.sleeveMesh.renderOrder = 1;
+    this.underMesh.renderOrder = 2;
     this._v = new THREE.Vector3();
 
     // Where the model's arms are in the picture, for telling sleeve from
@@ -203,8 +235,16 @@ export class Garment {
     // by the shader too - see sleeveUniforms. The swing itself is per frame.
     this._sleeves = null;
     this.arms = null;
-    this._swing = { left: 0, right: 0 };
-    this._to = new THREE.Vector3();
+    // Each sleeve vertex in its own arm's frame in the picture: how far down
+    // the arm, and how far in toward the body from its line.
+    this._along = new Float32Array(this.sleeve.x.length);
+    this._inward = new Float32Array(this.sleeve.x.length);
+    // Per side, the last direction each sleeve pointed, and its widths as
+    // shares of the photo's own proportions, damped.
+    this._dir = [null, null];
+    this._width = [{ out: 1, under: 1 }, { out: 1, under: 1 }];
+    this._U = new THREE.Vector3();
+    this._N = new THREE.Vector3();
     this._own = new THREE.Vector3();
 
     // The photographed body's own edge at each level, as `s` on her left and
@@ -239,8 +279,8 @@ export class Garment {
       left: bodyAt(this._q, ...sleeves.elbowLeft),
       right: bodyAt(this._q, ...sleeves.elbowRight),
     };
-    this._swing.left = this._swing.right = 0;
-    for (const layer of [this.body, this.sleeve]) {
+    this.forget();
+    for (const layer of [this.body, this.sleeve, this.under]) {
       for (let i = 0; i < layer.x.length; i++) {
         const [s, t] = bodyAt(this._q, layer.x[i], layer.y[i]);
         layer.s[i] = s;
@@ -268,7 +308,7 @@ export class Garment {
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     ctx.drawImage(image, 0, 0);
     const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    this._findArms(image.width / image.height);
+    this._findArms(image.width / image.height, data, width, height);
     const solid = (x, y) => {
       if (x < 0 || y < 0 || x >= 1 || y >= 1) return false;
       if (inside(this._freeShape, x, y)) return false;
@@ -441,6 +481,7 @@ export class Garment {
       for (let x = left[y] - 1; x >= -P; x--) copy(x, edgeL, 1);
       for (let x = right[y] + 1; x < W + P; x++) copy(x, edgeR, -1);
     }
+    this._soften(d, OW, H, (x, y) => x < P || x >= W + P || !solid[y * W + x - P]);
     octx.putImageData(img, 0, 0);
 
     // The body grid's picture coordinates, into this wider picture.
@@ -450,10 +491,58 @@ export class Garment {
     return out;
   }
 
+  // Soften the filled cloth: see BODY_SOFTEN. `filled(x, y)` says which
+  // pixels were filled rather than photographed; each is replaced by the
+  // average of the filled pixels within reach, weighted by how opaque they
+  // are, so the fill's own fade is kept. Across the columns, then down the
+  // rows.
+  _soften(d, OW, H, filled) {
+    const mask = new Uint8Array(OW * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < OW; x++) mask[y * OW + x] = filled(x, y) ? 1 : 0;
+    const pass = (r, dx, dy, n, len) => {
+      const line = new Float32Array(len * 4), use = new Uint8Array(len);
+      for (let l = 0; l < n; l++) {
+        const at = (k) => (dx ? l * OW + k : k * OW + l);
+        for (let k = 0; k < len; k++) {
+          const i = at(k);
+          use[k] = mask[i];
+          for (let c = 0; c < 4; c++) line[k * 4 + c] = d[i * 4 + c];
+        }
+        for (let k = 0; k < len; k++) {
+          if (!use[k] || line[k * 4 + 3] === 0) continue;
+          let R = 0, G = 0, B = 0, A = 0, m = 0;
+          for (let j = Math.max(0, k - r); j <= Math.min(len - 1, k + r); j++) {
+            if (!use[j]) continue;
+            const a = line[j * 4 + 3];
+            R += line[j * 4] * a;
+            G += line[j * 4 + 1] * a;
+            B += line[j * 4 + 2] * a;
+            A += a;
+            m++;
+          }
+          if (A > 0) {
+            const o = at(k) * 4;
+            d[o] = R / A;
+            d[o + 1] = G / A;
+            d[o + 2] = B / A;
+            d[o + 3] = A / m;
+          }
+        }
+      }
+    };
+    pass(BODY_SOFTEN_X, 1, 0, H, OW);
+    pass(BODY_SOFTEN, 0, 1, OW, H);
+  }
+
   // The model's upper arms, for telling sleeve from body: see SLEEVE_REACH.
   // Worked in the picture's own proportions - `aspect` is its width over its
   // height - with the shoulder width as the unit.
-  _findArms(aspect) {
+  //
+  // Also measured here, for laying each sleeve along the customer's arm: her
+  // upper arm's length, her torso's, and how far her sleeve reaches out from
+  // her arm's line - read off the cut-out's own transparency across the
+  // sleeve, at a few places down it. `data` is the picture's pixels, W by H.
+  _findArms(aspect, data, W, H) {
     this.arms = null;
     const sleeves = this._sleeveShape;
     if (!sleeves) return;
@@ -461,6 +550,12 @@ export class Garment {
     const at = ([x, y]) => [x * aspect, y];
     const width = Math.hypot((q.sl[0] - q.sr[0]) * aspect, q.sl[1] - q.sr[1]);
     const middle = at([(q.sl[0] + q.sr[0] + q.hl[0] + q.hr[0]) / 4, (q.sl[1] + q.sr[1] + q.hl[1] + q.hr[1]) / 4]);
+    this._torso = Math.hypot(((q.hl[0] + q.hr[0] - q.sl[0] - q.sr[0]) / 2) * aspect, (q.hl[1] + q.hr[1] - q.sl[1] - q.sr[1]) / 2);
+    const opaque = (px, py) => {
+      const x = px / aspect, y = py;
+      if (x < 0 || y < 0 || x >= 1 || y >= 1) return false;
+      return data[(Math.floor(y * H) * W + Math.floor(x * W)) * 4 + 3] > 128;
+    };
     this.arms = [[q.sl, sleeves.elbowLeft], [q.sr, sleeves.elbowRight]].map(([pivot, elbow]) => {
       const p = at(pivot), e = at(elbow);
       const length = Math.hypot(e[0] - p[0], e[1] - p[1]);
@@ -474,10 +569,35 @@ export class Garment {
       // the elbow's reach and a little past.
       const share = Math.min(sleeves.hem / Math.max(bodyAt(q, ...elbow)[1], 1e-3), 1.2);
       const hem = length * share;
+      // How far out from the arm's line the sleeve reaches, at 40, 60 and 80
+      // per cent of the way to its hem: the last cloth before three samples
+      // of none.
+      const reaches = [];
+      for (const f of [0.4, 0.6, 0.8]) {
+        const ax = p[0] + ux * hem * f, ay = p[1] + uy * hem * f;
+        let last = null, gap = 0;
+        for (let d = 0; d <= 0.6 * width && gap < 3; d += 0.005 * width) {
+          if (opaque(ax - nx * d, ay - ny * d)) (last = d), (gap = 0);
+          else gap++;
+        }
+        if (last !== null) reaches.push(last);
+      }
+      reaches.sort((a, b) => a - b);
+      const outer = reaches.length ? Math.max(reaches[reaches.length >> 1], 0.05 * width) : 0.15 * width;
       // `hemShare` is how far down the upper arm the sleeve ends: above it
       // the sleeve covers the customer's arm, below it the arm is bare.
-      return { p, ux, uy, nx, ny, hem, width, aspect, hemShare: share };
+      // `inner` is how far in from the arm's line the sleeve reaches: to
+      // where it is cut from the body, SLEEVE_REACH.
+      return { p, ux, uy, nx, ny, hem, width, aspect, hemShare: share, length, outer, inner: SLEEVE_REACH * width };
     });
+    // Each sleeve vertex in its own side's arm frame.
+    const sl = this.sleeve;
+    for (let i = 0; i < sl.x.length; i++) {
+      const a = this.arms[sl.s[i] < 0.5 ? 0 : 1];
+      const vx = sl.x[i] * aspect - a.p[0], vy = sl.y[i] - a.p[1];
+      this._along[i] = vx * a.ux + vy * a.uy;
+      this._inward[i] = vx * a.nx + vy * a.ny;
+    }
   }
 
   // How much a point of the picture belongs to either sleeve - or, given
@@ -504,13 +624,11 @@ export class Garment {
   // named for the customer's own left and right as the anchors are named for
   // the model's. `edges`, when given, is the customer's own edge at each
   // level, in the same `s` terms as photoEdges: see restretch. `elbows` is
-  // the customer's two elbows, in world space, null where not seen; the
-  // sleeves turn to follow them. `build` is how far the customer's shoulders
-  // reach past the joints against the model's, left and right; the sleeves
-  // hang that far out from the customer's joints, whatever the body layer
-  // under them is doing - with it under them, a sleeve standing off the
-  // torso shows cloth, not a gap.
-  update({ shoulderLeft, shoulderRight, hipLeft, hipRight }, edges = null, elbows = null, build = [1, 1]) {
+  // `arms` is, for `left` and `right`, the customer's elbow in world space
+  // and how far their arm reaches out from its line (`out`) and in toward
+  // the body (`in`), in world units, as the outline shows it - either null
+  // where not seen; see SLEEVE_FIT.
+  update({ shoulderLeft, shoulderRight, hipLeft, hipRight }, edges = null, arms = null) {
     const shoulderMid = shoulderLeft.clone().add(shoulderRight).multiplyScalar(0.5);
     const hipMid = hipLeft.clone().add(hipRight).multiplyScalar(0.5);
     const torso = hipMid.clone().sub(shoulderMid);
@@ -545,59 +663,80 @@ export class Garment {
     pos.needsUpdate = true;
     body.mesh.geometry.attributes.aBody.needsUpdate = true;
 
-    const sleeveS = (s) => (s < 0.5 ? s * build[0] : 1 + (s - 1) * build[1]);
-    const swing = this._swings(place, sleeveS, shoulderLeft, shoulderRight, elbows, acrossTop.length());
-    const sleeve = this.sleeve, spos = sleeve.mesh.geometry.attributes.position;
-    for (let i = 0; i < spos.count; i++) {
-      const s = sleeve.s[i], t = sleeve.t[i];
-      // Each half turns whole about its own joint, so nothing in it
-      // stretches; what of it is not sleeve is not drawn.
-      place(sleeveS(s), t, v);
-      if (s < 0.5) {
-        if (swing.left) turn(v, shoulderLeft, swing.left);
-      } else if (swing.right) {
-        turn(v, shoulderRight, swing.right);
+    if (!this.arms) return;
+    // The customer's shoulder width as it would be seen square-on - an arm
+    // does not get thinner when the body turns - and so the size of the
+    // photo's units on this body.
+    const shoulders = Math.max(acrossTop.length(), (torso.length() * this.arms[0].width) / this._torso);
+    const scale = shoulders / this.arms[0].width;
+    const frames = [0, 1].map((k) => {
+      const side = k === 0 ? "left" : "right";
+      const P = k === 0 ? shoulderLeft : shoulderRight;
+      const arm = this.arms[k];
+      const got = arms?.[side];
+      // The arm's direction: to the customer's elbow; or, where it cannot be
+      // read, the last one; or, before any, where her own elbow lands on
+      // this body.
+      const U = new THREE.Vector3();
+      let length;
+      if (got?.elbow && got.elbow.distanceTo(P) >= SLEEVE_STUB * shoulders) {
+        U.copy(got.elbow).sub(P);
+        length = U.length();
+        U.divideScalar(length);
+        this._dir[k] = { U: U.clone(), length };
+      } else if (this._dir[k]) {
+        U.copy(this._dir[k].U);
+        length = this._dir[k].length;
+      } else {
+        const hers = this._sleeves[side];
+        U.copy(place(hers[0], hers[1], this._own)).sub(P);
+        length = U.length();
+        U.divideScalar(length);
       }
+      const N = inwardOf(U, torso, acrossTop, k === 0);
+      // Along the arm: her upper arm onto theirs, within reason of the
+      // photo's proportions, since a foreshortened arm reads short.
+      const along = Math.min(Math.max(length / arm.length, 0.5 * scale), 1.3 * scale);
+      // Across: each side of the arm widened to the outline, damped. The
+      // underside, where it cannot be seen, is taken to be as wide as the
+      // outer side: an arm is round.
+      const w = this._width[k];
+      const fitTo = (reach) => Math.min(Math.max((reach * (1 + SLEEVE_FIT)) / arm.outer / scale, 0.9), SLEEVE_WIDEST);
+      const outWant = got?.out ? fitTo(got.out) : 1;
+      w.out += (outWant - w.out) * WIDTH_EASE;
+      const underWant = got?.in ? fitTo(got.in) : w.out;
+      w.under += (underWant - w.under) * WIDTH_EASE;
+      return { P, U, N, along, out: w.out * scale, under: w.under * scale, in: scale };
+    });
+
+    // Each half of the sleeve layer is laid rigidly along its arm, so nothing
+    // in it stretches between arm and body; what of it is not sleeve is not
+    // drawn.
+    const sleeve = this.sleeve, spos = sleeve.mesh.geometry.attributes.position;
+    const upos = this.under.mesh.geometry.attributes.position;
+    for (let i = 0; i < spos.count; i++) {
+      const f = frames[sleeve.s[i] < 0.5 ? 0 : 1];
+      const n = this._inward[i];
+      v.copy(f.P).addScaledVector(f.U, this._along[i] * f.along).addScaledVector(f.N, n * (n >= 0 ? f.in : f.out));
       spos.setXYZ(i, v.x, v.y, v.z);
+      // The underside: the same cloth, mirrored across the arm's line.
+      v.copy(f.P).addScaledVector(f.U, this._along[i] * f.along).addScaledVector(f.N, -n * f.under);
+      upos.setXYZ(i, v.x, v.y, v.z);
     }
     spos.needsUpdate = true;
-  }
-
-  // How far each sleeve turns about its shoulder joint: from where the
-  // model's upper arm would lie on this body - her elbow put through the
-  // same warp as the cloth, so a lean or a turn is allowed for - to where the
-  // customer's does. Without an elbow to follow, the sleeve eases back to
-  // the photo's own.
-  _swings(place, sleeveS, shoulderLeft, shoulderRight, elbows, width) {
-    for (const [side, pivot] of [["left", shoulderLeft], ["right", shoulderRight]]) {
-      const target = elbows?.[side];
-      const hers = this._sleeves?.[side];
-      let want = 0;
-      if (target && hers) {
-        const to = this._to.copy(target).sub(pivot);
-        if (to.length() < SLEEVE_STUB * width) {
-          this._swing[side] *= 1 - STUB_RETURN;
-          continue;
-        }
-        const own = place(sleeveS(hers[0]), hers[1], this._own).sub(pivot);
-        want = Math.atan2(to.y, to.x) - Math.atan2(own.y, own.x);
-      }
-      if (want > Math.PI) want -= 2 * Math.PI;
-      if (want < -Math.PI) want += 2 * Math.PI;
-      want = Math.min(Math.max(want, -SWING_MAX), SWING_MAX);
-      this._swing[side] += (want - this._swing[side]) * SWING_EASE;
-    }
-    return this._swing;
+    upos.needsUpdate = true;
   }
 
   // The sleeves let go of the last body's arms.
   forget() {
-    this._swing.left = this._swing.right = 0;
+    this._dir = [null, null];
+    this._width = [{ out: 1, under: 1 }, { out: 1, under: 1 }];
   }
 
   dispose() {
     this.mesh.geometry.dispose();
     this.sleeveMesh.geometry.dispose();
+    this.underMesh.geometry.dispose();
   }
 }
 
@@ -624,9 +763,10 @@ export function rowEdges({ sl, sr, hl, hr }, solid) {
 // The customer's edge at each level: along the row from the middle outward,
 // the first point where the body gives way to background - two samples of
 // it, not one, as a speck in the outline is not the body's edge. Where an arm
-// comes first the torso's own edge is under it, and what is known is only
-// that the torso reaches at least that far: that side is returned with
-// `blocked` set. A level whose middle cannot be read at all - off the frame,
+// comes first the torso's own edge is under it: that side is returned at the
+// arm's middle, with `blocked` set, since the torso reaches at least as far
+// as that under the arm. Stopped where the arm begins, the body layer ended
+// short of the sleeve and the customer's shirt showed between. A level whose middle cannot be read at all - off the frame,
 // or under an arm across the chest - is null.
 export function bodySides({ sl, sr, hl, hr }, solid, onArm) {
   const out = [];
@@ -641,7 +781,11 @@ export function bodySides({ sl, sr, hl, hr }, solid, onArm) {
       let gap = 0;
       for (let s = 0.5; s >= -ROW_REACH && s <= 1 + ROW_REACH; s += dir * 0.02) {
         const p = at(s);
-        if (onArm(...p)) return { s: last, blocked: true };
+        if (onArm(...p)) {
+          let end = s;
+          for (let e = s; e >= -ROW_REACH && e <= 1 + ROW_REACH && onArm(...at(e)); e += dir * 0.02) end = e;
+          return { s: (s + end) / 2, blocked: true };
+        }
         if (solid(...p)) {
           last = s;
           gap = 0;
@@ -690,11 +834,18 @@ function restretch(s, t, photo, body) {
 // shoulder width and the picture's aspect - see sleeveUniforms.
 export const SLEEVE_GLSL = /* glsl */ `
 float sleeveSmooth(float x) { float k = clamp(x, 0.0, 1.0); return k * k * (3.0 - 2.0 * k); }
-float sleeveWeight(vec2 pic, vec4 a, vec4 b, vec2 shape) {
+// \`up\` is 1 for the sleeve and 0 for its mirrored underside, whose top must
+// not reach above the joint: mirrored, the top of the shoulder lands on the
+// inside, by the neck.
+float sleeveInward(vec2 pic, vec4 a, vec4 b, vec2 shape) {
+  return dot(vec2(pic.x * shape.y, pic.y) - a.xy, b.xy) / shape.x;
+}
+float sleeveWeight(vec2 pic, vec4 a, vec4 b, vec2 shape, float up) {
   vec2 v = vec2(pic.x * shape.y, pic.y) - a.xy;
   float along = dot(v, a.zw), inward = dot(v, b.xy);
+  float cap = -${SLEEVE_CAP_UP.toFixed(4)} * up * sleeveSmooth(-inward / shape.x / ${SLEEVE_REACH.toFixed(4)});
   return (1.0 - sleeveSmooth((inward / shape.x - ${SLEEVE_REACH.toFixed(4)}) / ${SLEEVE_BLEND.toFixed(4)} + 0.5))
-    * sleeveSmooth(along / shape.x / ${SLEEVE_CAP.toFixed(4)})
+    * sleeveSmooth((along / shape.x - cap) / ${SLEEVE_CAP.toFixed(4)})
     * (1.0 - sleeveSmooth((along - b.z) / shape.x / ${SLEEVE_FADE.toFixed(4)} + 0.5));
 }
 `;
@@ -717,8 +868,9 @@ function sleeveWeight(arm, x, y, more = 0) {
   const { p, ux, uy, nx, ny, hem, width, aspect } = arm;
   const vx = x * aspect - p[0], vy = y - p[1];
   const along = vx * ux + vy * uy, inward = vx * nx + vy * ny;
+  const cap = -SLEEVE_CAP_UP * smooth(-inward / width / SLEEVE_REACH);
   return (1 - smooth((inward / width - SLEEVE_REACH - more) / SLEEVE_BLEND + 0.5))
-    * smooth(along / width / SLEEVE_CAP)
+    * smooth((along / width - cap) / SLEEVE_CAP)
     * (1 - smooth((along - hem) / width / SLEEVE_FADE + 0.5));
 }
 
@@ -727,12 +879,15 @@ const smooth = (x) => {
   return k * k * (3 - 2 * k);
 };
 
-// Turn `v` about `about` by `angle`, in the plane the garment is drawn on.
-function turn(v, about, angle) {
-  const c = Math.cos(angle), s = Math.sin(angle);
-  const x = v.x - about.x, y = v.y - about.y;
-  v.x = about.x + x * c - y * s;
-  v.y = about.y + x * s + y * c;
+// Square to an arm's direction `U`, the side toward the body: for the left
+// arm, the way `across` (left shoulder to right) lies from `down` (the
+// torso's line), turned the same way round from `U`; the right arm the other
+// way. Worked from the body's own lines, not from where its middle is, so an
+// arm across the chest - pointing at the middle - does not flip it.
+export function inwardOf(U, down, across, left) {
+  const sense = Math.sign(down.x * across.y - down.y * across.x) || 1;
+  const k = left ? sense : -sense;
+  return new THREE.Vector3(-U.y * k, U.x * k, 0);
 }
 
 // Whether a point lies in a polygon given as [[x, y], ...].

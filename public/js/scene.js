@@ -6,7 +6,7 @@
 // the body's frame, its outline, and where its arms are.
 
 import * as THREE from "three";
-import { Garment, DEFAULT_ANCHORS, LEVELS, bodySides, SLEEVE_GLSL } from "./drape.js";
+import { Garment, DEFAULT_ANCHORS, LEVELS, bodySides, inwardOf, SLEEVE_GLSL } from "./drape.js";
 import { POSE, seen } from "./tracking.js";
 
 // The plane the garment is drawn on, in front of the camera. Its distance is
@@ -53,8 +53,10 @@ const EDGE_EASE = 0.15;
 
 // The customer's build: how far their shoulders reach past the joints, read
 // along the shoulder line - the one row the arms do not hide while they hang
-// down - against how far the model's did. The whole garment is widened by it,
-// so a broad-shouldered customer is not dressed in a slim model's width. It
+// down - against how far the model's did. It sets how wide the body layer is
+// taken to be where an arm hides the torso's edge, so a broad-shouldered
+// customer is not dressed in a slim model's width there. (The sleeves are
+// sized to the arms themselves; see _armWidths.) It
 // is read only while that arm hangs (elbow within BUILD_ELBOW shoulder widths
 // of straight below the shoulder): an arm out to the side reads as shoulder.
 // Bounds and rates are guesses; the reading is slow on purpose, since build
@@ -93,6 +95,13 @@ const ELBOW_EASE = 0.2;
 // frame, and a sleeve that let go on every flicker twitched. About two thirds
 // of a second; a guess.
 const ELBOW_GRACE = 20;
+
+// How far across the upper arm its width is looked for, either side of the
+// arm's line, in shoulder widths, and in what steps. Further than an arm is
+// thick, so that an arm against the body - no background before the torso -
+// reads as not seen on that side. Guesses.
+const ARM_SCAN = 0.6;
+const ARM_STEP = 0.015;
 
 // The arms, as capsules round the pose model's points, in shoulder widths:
 // about 9 cm across an upper arm, 7 across a forearm and 9 across a hand
@@ -135,7 +144,9 @@ const MARGIN_STEPS = 12;
 // out of it. `vFree` is 1 where the cloth may hang past the outline - the
 // pallu, the skirt - and the mask is the person, unmirrored, top row first.
 // It also keeps each pass to its own part of the picture: the torso pass
-// (uPart 0) draws what is not sleeve, the sleeve pass (uPart 1) what is.
+// (uPart 0) draws what is not sleeve, the sleeve pass (uPart 1) the outer
+// half of each sleeve, from its arm's line out, and the underside pass
+// (uPart 2) the same half again, mirrored onto the arm's inner side.
 const CLIP = /* glsl */ `
 uniform sampler2D uMask;
 uniform float uMaskOn;
@@ -192,10 +203,20 @@ float garmentKeep() {
   if (uPart > 0.5) {
     float sleeve = 0.0;
     if (uSleeveOn > 0.5) {
-      sleeve = max(sleeveWeight(vPic, uSleeveA[0], uSleeveB[0], uSleeveShape),
-                   sleeveWeight(vPic, uSleeveA[1], uSleeveB[1], uSleeveShape));
+      // The sleeve pass reaches a little past the arm's line, and its
+      // underside, drawn after it, a little past it the other way, each
+      // opaque on the line: two soft edges meeting there let the camera
+      // through.
+      bool under = uPart > 1.5;
+      float up = under ? 0.0 : 1.0;
+      float from = 0.0, to = under ? 0.03 : 0.02;
+      for (int k = 0; k < 2; k++) {
+        float w = sleeveWeight(vPic, uSleeveA[k], uSleeveB[k], uSleeveShape, up);
+        w *= 1.0 - smoothstep(from, to, sleeveInward(vPic, uSleeveA[k], uSleeveB[k], uSleeveShape));
+        sleeve = max(sleeve, w);
+      }
     }
-    part = smoothstep(0.47, 0.53, sleeve);
+    part = smoothstep(0.2, 0.8, sleeve);
   }
   if (uMaskOn < 0.5) {
     // No outline to cut the body layer to, so it keeps the photo's own
@@ -307,9 +328,13 @@ export class Stage {
     this.sleeveMaterial.onBeforeCompile = shade(1);
     // Two programs, not one: three would otherwise share the first's.
     this.sleeveMaterial.customProgramCacheKey = () => "sleeve";
+    this.underMaterial = this.material.clone();
+    this.underMaterial.onBeforeCompile = shade(2);
+    this.underMaterial.customProgramCacheKey = () => "under";
 
-    this.garment = new Garment(this.material, this.sleeveMaterial);
+    this.garment = new Garment(this.material, this.sleeveMaterial, this.underMaterial);
     this.scene.add(this.garment.mesh);
+    this.scene.add(this.garment.underMesh);
     this.scene.add(this.garment.sleeveMesh);
 
     this.anchors = DEFAULT_ANCHORS;
@@ -349,6 +374,7 @@ export class Stage {
     this.settings.opacity = value;
     this.material.opacity = value;
     this.sleeveMaterial.opacity = value;
+    this.underMaterial.opacity = value;
   }
 
   // Load a saree. The texture is cached, so flipping back and forth through
@@ -361,8 +387,10 @@ export class Stage {
     this._edges = null;
     const show = (texture) => {
       if (this._wearing !== entry) return;
-      this.sleeveMaterial.map = texture;
-      this.sleeveMaterial.needsUpdate = true;
+      for (const m of [this.sleeveMaterial, this.underMaterial]) {
+        m.map = texture;
+        m.needsUpdate = true;
+      }
       // The body layer is made from the picture once it is in; see
       // Garment.measure. It is small work, so it is not kept.
       const canvas = this.garment.measure(texture.image);
@@ -470,7 +498,8 @@ export class Stage {
     this._setMask(outline, arms);
     const edges = this._readEdges(outline, arms);
     this._setEdges(edges);
-    this.garment.update(this._fit, edges, this._elbowsOf(landmarks, mid, torso), this._build);
+    const elbows = this._elbowsOf(landmarks, mid, torso);
+    this.garment.update(this._fit, edges, this._armWidths(outline, elbows));
     this.visible = true;
   }
 
@@ -492,6 +521,59 @@ export class Stage {
     return this._elbow;
   }
 
+  // For each arm, its elbow and how far it reaches out from its line and in
+  // toward the body, in world units, as the outline shows it: across the
+  // upper arm at a few places down the part the sleeve covers, the first
+  // background after the arm. A side that meets the torso, or the edge of the
+  // frame, before any background is not seen. See SLEEVE_FIT in drape.js.
+  _armWidths(outline, elbows) {
+    const f = this._fit;
+    const out = { left: null, right: null };
+    if (!f) return out;
+    const across = f.shoulderRight.clone().sub(f.shoulderLeft);
+    const down = f.hipLeft.clone().add(f.hipRight).sub(f.shoulderLeft).sub(f.shoulderRight).multiplyScalar(0.5);
+    const shoulders = Math.max(across.length(), down.length() / TORSO_PER_SHOULDERS);
+    const at = (p) => {
+      const [x, y] = this._toVideo(p);
+      if (x < 0 || y < 0 || x >= 1 || y >= 1) return -1;
+      return outline.data[Math.floor(y * outline.height) * outline.width + Math.floor(x * outline.width)] >= 128 ? 1 : 0;
+    };
+    const p = new THREE.Vector3();
+    for (const [k, side, P] of [[0, "left", f.shoulderLeft], [1, "right", f.shoulderRight]]) {
+      const E = elbows[side];
+      if (!E) continue;
+      out[side] = { elbow: E, out: null, in: null };
+      if (!outline) continue;
+      const length = E.distanceTo(P);
+      if (length < 0.2 * shoulders) continue;
+      const U = E.clone().sub(P).divideScalar(length);
+      const N = inwardOf(U, down, across, k === 0);
+      const hem = Math.max(this.garment.arms?.[k].hemShare ?? 0.5, 0.35);
+      const reach = (from, dir) => {
+        let last = 0, gap = 0;
+        for (let d = 0; d <= ARM_SCAN * shoulders; d += ARM_STEP * shoulders) {
+          const hit = at(p.copy(from).addScaledVector(N, dir * d));
+          if (hit < 0) return null;
+          if (hit) (last = d), (gap = 0);
+          else if (++gap >= 2) return last;
+        }
+        return null;
+      };
+      const outs = [], ins = [];
+      for (const share of [0.4, 0.6, 0.8]) {
+        const A = P.clone().addScaledVector(U, length * hem * share);
+        if (at(A) !== 1) continue;
+        const o = reach(A, -1), i = reach(A, 1);
+        if (o !== null) outs.push(o);
+        if (i !== null) ins.push(i);
+      }
+      const median = (a) => (a.length >= 2 ? a.sort((x, y) => x - y)[a.length >> 1] : null);
+      out[side].out = median(outs);
+      out[side].in = median(ins);
+    }
+    return out;
+  }
+
   // Hold a raised arm's shoulder where it was against the other shoulder. The
   // pose model follows the arm up with the shoulder point, and a garment hung
   // on that tilts every time someone waves. With both arms down, or both up,
@@ -511,7 +593,17 @@ export class Stage {
     }
     if (!this._across) return { shoulderLeft, shoulderRight };
     if (left && right) {
-      if (!mouth || !this._belowMouth) return { shoulderLeft, shoulderRight };
+      if (!mouth || !this._belowMouth) {
+        // No mouth to hold them against - the head out of the top of the
+        // frame, as it is with the arms up at a laptop. Their spread is held
+        // at least, about where they are: it is the spread that made the
+        // garment grow.
+        const mid = shoulderLeft.clone().add(shoulderRight).multiplyScalar(0.5);
+        return {
+          shoulderLeft: mid.clone().addScaledVector(this._across, -0.5),
+          shoulderRight: mid.clone().addScaledVector(this._across, 0.5),
+        };
+      }
       const mid = mouth.add(this._belowMouth);
       return {
         shoulderLeft: mid.clone().addScaledVector(this._across, -0.5),
@@ -761,6 +853,7 @@ export class Stage {
   render() {
     this.garment.mesh.visible = this.visible;
     this.garment.sleeveMesh.visible = this.visible;
+    this.garment.underMesh.visible = this.visible;
     this.renderer.render(this.scene, this.camera);
   }
 }

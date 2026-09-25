@@ -78,19 +78,23 @@ is drawn in two layers, like a paper doll:
   each row of the torso carried on outward by mirroring the cloth beside the
   edge - swinging up and down as it goes, so a flower is not doubled into a
   butterfly, and passing over the torso's shaded sides and what is left of
-  the model's hands. A shader then cuts it to the customer's outline, a
+  the model's hands - then softened a little, since each row is mirrored on
+  its own and the rows came out as bands. A shader then cuts it to the customer's outline, a
   centimetre or so past it for the cloth's thickness, and to the torso's own
   edge as read at nine heights, so it does not creep onto an arm held away
   from the body. A broader customer, or a man's straight waist, is covered
   without the print being pulled wide.
-- **The sleeves are their own layer.** Each sleeve turns whole about the
-  customer's shoulder joint by the angle between their upper arm and the
-  model's - her elbows are read by the pose model too. Nothing joins the two
-  layers, so nothing stretches between them: a raised arm shows the body
-  layer's cloth where the sleeve was, as a blouse does, where one sheet of
-  cloth was pulled out under the arm like elastic. What counts as sleeve is
-  the cloth close round her upper arm, measured square to it, and nothing
-  above the joint. A sleeve turns at most 115°.
+- **The sleeves are their own layer, laid along the customer's arms.** Each
+  sleeve is put on the customer's upper arm - her shoulder joint on theirs,
+  her elbow on theirs, both read by the pose model - and widened to the arm
+  as the outline shows it: a man's shirt sleeve is wider than her bare arm.
+  Its underside is its own outer half, mirrored, so the arm is in sleeve all
+  the way round; stretched over the underside, her armpit was a pale band.
+  Nothing joins the sleeves to the body layer, so nothing stretches between
+  them: a raised arm shows the body layer's cloth where the sleeve was, as a
+  blouse does. What counts as sleeve is the cloth close round her upper arm,
+  measured square to it, and the top of her shoulder, which a sleeve's seam
+  goes over.
 - **The edge is read at the hips too.** The customer's edge is looked for
   well past each joint: the hip joints are half as far apart as the
   shoulders, and looked for as near as at the shoulders, the hips' outline
@@ -98,9 +102,6 @@ is drawn in two layers, like a paper doll:
   hangs free, is widened to the hips; above it the body layer does the
   covering. Where an arm lies against the side the torso reaches at least as
   far as the arm, so the cloth goes under it.
-- **The sleeves are sized to the customer's build.** Along the shoulder line,
-  which the arms do not hide while they hang, the customer's reach past the
-  joints is read against the model's, and the sleeves hang that far out.
 - **The outline is smoothed before anything reads it.** The pose model's
   outline is blocky and changes every frame; cloth clipped to it straight
   gets a lumpy edge that crawls. It is averaged over frames and blurred
