@@ -48,9 +48,11 @@ model reads them**, not as they look: copy the photo into `public/`, open
 `pose-test.html?img=<it>`, and it prints `--anchors` and `--elbows`. Delete
 the copy after; source photos are never committed. `--sleeve` is the photo
 row where the blouse's sleeves end; with the elbows it lets each sleeve
-follow the customer's arm. For a model's arms, neck, hair and a hanging
-pallu, the tool also takes `--skin`, `--neck`, `--hair`, `--mend`, `--drop`
-and `--free` (see its docstring). It prints the library entry to paste into
+follow the customer's arm. For a model's arms, neck, hair, hands in front of
+the cloth and a hanging pallu, the tool also takes `--skin`, `--neck`,
+`--hair`, `--mend`, `--patch`, `--drop` and `--free`, and `--box` crops a
+composite (see its docstring). `--skin` eats gold, cream or peach cloth: for
+those, outline the arms with `--drop` and `--patch` instead. It prints the library entry to paste into
 `public/js/library.js`, with the command in a comment so the cut can be
 remade.
 

@@ -35,8 +35,9 @@ What it does:
      way as hair: an arm that overlaps the side of her body hides cloth the
      customer's body needs, and cutting it leaves a hole down their side.
    - `--patch` is an outline of anything in front of the garment - hands
-     clasped at the waist, say - to be filled from the cloth around it,
-     whatever colour it is. Once per outline.
+     clasped at the waist, say - to be filled with the cloth from straight
+     above or below it, whatever colour it is, so pleats and borders run on
+     through. Once per outline.
    - `--hair` is a box where her hair falls over the garment. The dark mass
      in it is taken out and the hole filled with the garment's own print,
      copied from nearby in patches that best match the edge of the hole, so
@@ -146,6 +147,41 @@ def fill_from_print(rgb, hole, source, tile=20, reach=(-60, 181)):
     return out
 
 
+def fill_from_above_or_below(rgb, hole, source):
+    """Fill `hole` with the cloth straight above or below it, moved as one.
+
+    For what is in front of a saree - hands at the waist - the cloth behind
+    runs up and down: pleats, a border, a drape. So the whole hole is copied
+    from above or below at the one vertical shift whose copy best joins the
+    cloth round the hole, and the pleats run on through with a seam only at
+    the top and bottom. Patches matched tile by tile from any direction,
+    which suit a repeating print, turned brocade over pleats into a
+    checkerboard, and one shift per column of tiles stepped the pleats.
+    """
+    h, w = hole.shape
+    around = filt(hole, ImageFilter.MaxFilter(9)) & ~hole & source
+    cy, cx = np.nonzero(hole)
+    ay, ax = np.nonzero(around)
+    span = cy.max() - cy.min() + 1
+    best = None
+    for dy in list(range(-span - 200, -span + 1, 2)) + list(range(span, span + 201, 2)):
+        sy = cy + dy
+        if sy.min() < 0 or sy.max() >= h or not source[sy, cx].all():
+            continue
+        qy = ay + dy
+        ok = (qy >= 0) & (qy < h)
+        e = np.abs(rgb[ay[ok], ax[ok]] - rgb[qy[ok], ax[ok]]).mean() if ok.any() else 0.0
+        if best is None or e < best[0]:
+            best = (e, dy)
+    if best is None:
+        print("note: no cloth straight above or below the patch to copy; it is left as it is")
+        return rgb
+    out = rgb.copy()
+    out[cy, cx] = rgb[cy + best[1], cx]
+    print(f"patch: filled from {abs(best[1])} px {'below' if best[1] > 0 else 'above'}")
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("photo")
@@ -190,26 +226,8 @@ def main():
     mx = rgb.max(-1)
     sat = (mx - rgb.min(-1)) / np.maximum(mx, 1e-3)
 
-    if alpha.min() > 0.99 and args.plain:
-        # The backdrop is whatever colour runs round the edge of the frame.
-        edge = np.concatenate([rgb[:3].reshape(-1, 3), rgb[-3:].reshape(-1, 3),
-                               rgb[:, :3].reshape(-1, 3), rgb[:, -3:].reshape(-1, 3)])
-        back = np.median(edge, axis=0)
-        distance = np.abs(rgb - back).sum(-1)
-        keep = distance > 0.18
-        keep = np.asarray(
-            Image.fromarray((keep * 255).astype(np.uint8), "L").filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5))
-        ) > 127
-        keep = reach_from(keep, keep.shape[0] // 2, keep.shape[1] // 2)
-        alpha = keep.astype(np.float32)
-    elif alpha.min() > 0.99:
-        print("note: this photo has no transparency and --plain was not given, so nothing was cut away")
-
     h, w = alpha.shape
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
-    hue = np.where(mx == r, ((g - b) / np.maximum(mx - rgb.min(-1), 1e-6)) % 6,
-                   np.where(mx == g, (b - r) / np.maximum(mx - rgb.min(-1), 1e-6) + 2,
-                            (r - g) / np.maximum(mx - rgb.min(-1), 1e-6) + 4)) / 6
     # Skin is warm, not very saturated and fairly bright; measured on the
     # first worn photo, skin ran 0.16-0.39 saturation and the mustard cloth
     # 0.65-0.95. Only areas at least 7 px across count, and they are grown a
@@ -217,6 +235,31 @@ def main():
     skin = opened((sat > 0.08) & (sat < 0.45) & (r > b + 0.06) & (mx > 0.55), 7)
     skin = filt(skin, ImageFilter.MaxFilter(5))
 
+    if alpha.min() > 0.99 and args.plain:
+        # The backdrop is whatever colour runs round the edge of the frame -
+        # and it is what can be REACHED from the edge over pixels of that
+        # colour, not every pixel of that colour: tissue silk shimmers a
+        # silver near enough to a grey backdrop that, taken pixel by pixel,
+        # the garment fell to pieces. The flood passes through skin, since
+        # an arm's shadow of backdrop between it and the body is backdrop
+        # too, and the skin goes anyway.
+        edge = np.concatenate([rgb[:3].reshape(-1, 3), rgb[-3:].reshape(-1, 3),
+                               rgb[:, :3].reshape(-1, 3), rgb[:, -3:].reshape(-1, 3)])
+        back = np.median(edge, axis=0)
+        distance = np.abs(rgb - back).sum(-1)
+        cloth = distance > 0.18
+        cloth = np.asarray(
+            Image.fromarray((cloth * 255).astype(np.uint8), "L").filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5))
+        ) > 127
+        backdrop = reach_from(~cloth | skin, 0, 0) & ~cloth
+        keep = reach_from(~backdrop, h // 2, w // 2)
+        alpha = keep.astype(np.float32)
+    elif alpha.min() > 0.99:
+        print("note: this photo has no transparency and --plain was not given, so nothing was cut away")
+
+    hue = np.where(mx == r, ((g - b) / np.maximum(mx - rgb.min(-1), 1e-6)) % 6,
+                   np.where(mx == g, (b - r) / np.maximum(mx - rgb.min(-1), 1e-6) + 2,
+                            (r - g) / np.maximum(mx - rgb.min(-1), 1e-6) + 4)) / 6
     if args.hair:
         hx0, hy0, hx1, hy1 = (int(round(v)) - o for v, o in zip(args.hair, (x0, y0, x0, y0)))
         box = np.zeros_like(alpha, bool)
@@ -244,11 +287,12 @@ def main():
         ImageDraw.Draw(area).polygon([(x - x0, y - y0) for x, y in outline], fill=255)
         hole = (np.asarray(area) > 127) & (alpha > 0.5)
         if hole.any():
-            cloth = closed((alpha > 0.5) & ~skin, 7) & ~skin & ~hole
-            ys, xs = np.nonzero(hole)
-            near = np.zeros_like(cloth)
-            near[max(ys.min() - 120, 0):ys.max() + 120, max(xs.min() - 120, 0):xs.max() + 120] = True
-            rgb = fill_from_print(rgb, hole, filt(cloth, ImageFilter.MinFilter(5)) & near, reach=(-120, 121))
+            # Skin is kept out of the cloth copied from only when it is being
+            # cut: a photo cut without --skin is one whose cloth reads as
+            # skin, and that cloth is what there is to copy.
+            bare = skin if args.skin else np.zeros_like(skin)
+            cloth = filt(closed((alpha > 0.5) & ~bare, 7) & ~bare & ~hole, ImageFilter.MinFilter(3))
+            rgb = fill_from_above_or_below(rgb, hole, cloth)
             skin &= ~hole
 
     for outline in args.mend:
