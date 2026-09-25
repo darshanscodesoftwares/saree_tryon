@@ -42,10 +42,12 @@ const useMask = params.get("mask") !== "0";
 // the right shoulder point up by `drag`, as the pose model does. `arms` is
 // how they hang otherwise: "away" a little from the sides, as a model is
 // asked to stand, "sides" straight down against them, "hips" hands on hips,
-// "out" held straight out to the sides at shoulder height.
+// "out" held straight out to the sides at shoulder height, "down45" down and
+// out at 45°, "rightUp" the right arm raised 60° from the side and the left
+// hanging. `man` draws a straight torso in place of the model's waist.
 // `raiseBoth` lifts both arms high, dragging both shoulder points up and out
 // by `drag`.
-function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, raise = false, raiseBoth = false, drag = 0, arms = "away", hipsInFrame }) {
+function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, man = false, raise = false, raiseBoth = false, drag = 0, arms = "away", hipsInFrame }) {
   const w = width * Math.cos(yaw * Math.PI / 180);
   const dy = Math.tan(tilt * Math.PI / 180) * w / 2;
   // The proportions scene.js assumes for hips it cannot see, so a body with
@@ -54,7 +56,16 @@ function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, raise = f
   const hw = w * 0.51;
   const sl = [cx + w / 2, sy + dy], sr = [cx - w / 2, sy - dy];
   const hl = [cx + lean + hw / 2, sy + torso], hr = [cx + lean - hw / 2, sy + torso];
+  // An arm at `deg` from hanging straight down, outward.
+  const swung = (s, side, deg) => {
+    const a = (deg * Math.PI) / 180, dx = side * Math.sin(a), dy = Math.cos(a);
+    const e = [s[0] + dx * 0.9 * width, s[1] + dy * 0.9 * width];
+    const wr = [e[0] + dx * 0.75 * width, e[1] + dy * 0.75 * width];
+    return [e, wr, [wr[0] + dx * 0.22 * width, wr[1] + dy * 0.22 * width]];
+  };
   const hang = (s, side) => {
+    if (arms === "down45") return swung(s, side, 45);
+    if (arms === "rightUp") return side < 0 ? swung(s, side, 120) : swung(s, side, 8);
     if (arms === "out") {
       const e = [s[0] + side * 0.75 * width, s[1] - 0.02 * width];
       const wr = [e[0] + side * 0.7 * width, e[1] - 0.05 * width];
@@ -103,14 +114,14 @@ function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, raise = f
   const hipsSeen = hipsInFrame && marks[POSE.HIP_LEFT].y <= 1;
   if (!hipsSeen) marks[POSE.HIP_LEFT].visibility = marks[POSE.HIP_RIGHT].visibility = 0.1;
   // The outline is drawn from the true shoulders, not the dragged point.
-  return { marks, hipsSeen, shape: { sl, sr, hl, hr, el, er, wl, wr: wrr, handL, handR, w, width, girth, nose: px[POSE.NOSE] } };
+  return { marks, hipsSeen, shape: { sl, sr, hl, hr, el, er, wl, wr: wrr, handL, handR, w, width, girth, man, nose: px[POSE.NOSE] } };
 }
 
 // Head, neck, torso and arms. `m` maps a camera point to where it is drawn:
 // mirrored for the picture, as the app shows the camera, and as-is for the
 // mask, which is in the camera's own frame.
 function drawBody(ctx, shape, m, fill, stroke) {
-  const { sl, sr, hl, hr, el, er, wl, wr, handL, handR, w, width, girth, nose } = shape;
+  const { sl, sr, hl, hr, el, er, wl, wr, handL, handR, w, width, girth, man, nose } = shape;
   const P = (p) => m(p);
   ctx.fillStyle = fill;
   ctx.strokeStyle = stroke;
@@ -132,7 +143,14 @@ function drawBody(ctx, shape, m, fill, stroke) {
     const half = (w / 2) * k * girth;
     return [[c[0] + half, c[1]], [c[0] - half, c[1]]];
   };
-  const rows = [[0, 1.3], [0.3, 1.09], [0.6, 1.03], [1.0, 1.29], [1.4, 1.3]].map(([t, k]) => at(t, k));
+  // A man's torso is straighter: no waist, and hips no wider than it. A
+  // guess at the proportions, against the same joints. The shoulders' tops
+  // are a little above the joints, as a real body's are: level with them,
+  // the shoulder line ran along the outline's very edge.
+  const profile = man
+    ? [[-0.08, 1.2], [0, 1.3], [0.3, 1.24], [0.6, 1.18], [1.0, 1.15], [1.4, 1.15]]
+    : [[-0.08, 1.2], [0, 1.3], [0.3, 1.09], [0.6, 1.03], [1.0, 1.29], [1.4, 1.3]];
+  const rows = profile.map(([t, k]) => at(t, k));
   poly([...rows.map((r) => r[0]), ...rows.map((r) => r[1]).reverse()]);
   // The arms, as thick strokes: upper arm, forearm, hand.
   ctx.lineCap = "round";
@@ -189,6 +207,9 @@ const CASES = [
   ["Arms out, ragged outline", { cx: 150, sy: 120, width: 100, arms: "out", ragged: true, hipsInFrame: true }],
   ["Both arms raised high", { cx: 150, sy: 170, width: 120, raiseBoth: true, drag: 0.15, hipsInFrame: false }],
   ["Both raised, turned 35°", { cx: 155, sy: 170, width: 120, yaw: 35, tilt: 6, raiseBoth: true, drag: 0.15, hipsInFrame: false }],
+  ["Man, arms close, ragged", { cx: 150, sy: 130, width: 140, man: true, arms: "sides", ragged: true, hipsInFrame: false }],
+  ["Man, right arm raised, ragged", { cx: 150, sy: 150, width: 140, man: true, arms: "rightUp", ragged: true, hipsInFrame: false }],
+  ["Man, arms down and out, ragged", { cx: 150, sy: 130, width: 130, man: true, arms: "down45", ragged: true, hipsInFrame: false }],
 ];
 
 const grid = document.getElementById("grid");
