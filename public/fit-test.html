@@ -46,8 +46,11 @@ const useMask = params.get("mask") !== "0";
 // out at 45°, "rightUp" the right arm raised 60° from the side and the left
 // hanging. `man` draws a straight torso in place of the model's waist.
 // `raiseBoth` lifts both arms high, dragging both shoulder points up and out
-// by `drag`.
-function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, man = false, raise = false, raiseBoth = false, drag = 0, arms = "away", hipsInFrame }) {
+// by `drag`. `arms` as a number swings both that many degrees out from
+// hanging straight down; past 60 it drags the shoulders as `raiseBoth` does.
+// `sleeves` thickens the upper arms, as a man's short-sleeved shirt does,
+// and `noMouth` puts the head out of the top of the frame.
+function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, man = false, raise = false, raiseBoth = false, drag = 0, arms = "away", sleeves = 1, noMouth = false, hipsInFrame }) {
   const w = width * Math.cos(yaw * Math.PI / 180);
   const dy = Math.tan(tilt * Math.PI / 180) * w / 2;
   // The proportions scene.js assumes for hips it cannot see, so a body with
@@ -64,6 +67,7 @@ function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, man = fal
     return [e, wr, [wr[0] + dx * 0.22 * width, wr[1] + dy * 0.22 * width]];
   };
   const hang = (s, side) => {
+    if (typeof arms === "number") return swung(s, side, arms);
     if (arms === "down45") return swung(s, side, 45);
     if (arms === "rightUp") return side < 0 ? swung(s, side, 120) : swung(s, side, 8);
     if (arms === "out") {
@@ -97,9 +101,10 @@ function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, man = fal
     wrr = [cx - 0.05 * w, sy + 0.15 * width];
     handR = [cx + 0.15 * w, sy + 0.02 * width];
   }
+  const both = raiseBoth || (typeof arms === "number" && arms > 60);
   const px = {
-    [POSE.SHOULDER_LEFT]: raiseBoth ? [sl[0] + drag * width * 0.5, sl[1] - drag * width] : sl,
-    [POSE.SHOULDER_RIGHT]: [sr[0] - (raiseBoth ? drag * width * 0.5 : 0), sr[1] - drag * width],
+    [POSE.SHOULDER_LEFT]: both ? [sl[0] + drag * width * 0.5, sl[1] - drag * width] : sl,
+    [POSE.SHOULDER_RIGHT]: [sr[0] - (both ? drag * width * 0.5 : 0), sr[1] - drag * width],
     [POSE.HIP_LEFT]: hl, [POSE.HIP_RIGHT]: hr,
     [POSE.ELBOW_LEFT]: el, [POSE.ELBOW_RIGHT]: er,
     [POSE.WRIST_LEFT]: wl, [POSE.WRIST_RIGHT]: wrr,
@@ -113,15 +118,16 @@ function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, man = fal
   for (const [k, [x, y]] of Object.entries(px)) marks[k] = { x: x / W, y: y / H, z: 0, visibility: 0.99 };
   const hipsSeen = hipsInFrame && marks[POSE.HIP_LEFT].y <= 1;
   if (!hipsSeen) marks[POSE.HIP_LEFT].visibility = marks[POSE.HIP_RIGHT].visibility = 0.1;
+  if (noMouth) for (const k of [POSE.MOUTH_LEFT, POSE.MOUTH_RIGHT, POSE.NOSE]) marks[k].visibility = 0.1;
   // The outline is drawn from the true shoulders, not the dragged point.
-  return { marks, hipsSeen, shape: { sl, sr, hl, hr, el, er, wl, wr: wrr, handL, handR, w, width, girth, man, nose: px[POSE.NOSE] } };
+  return { marks, hipsSeen, shape: { sl, sr, hl, hr, el, er, wl, wr: wrr, handL, handR, w, width, girth, man, sleeves, nose: px[POSE.NOSE] } };
 }
 
 // Head, neck, torso and arms. `m` maps a camera point to where it is drawn:
 // mirrored for the picture, as the app shows the camera, and as-is for the
 // mask, which is in the camera's own frame.
 function drawBody(ctx, shape, m, fill, stroke) {
-  const { sl, sr, hl, hr, el, er, wl, wr, handL, handR, w, width, girth, man, nose } = shape;
+  const { sl, sr, hl, hr, el, er, wl, wr, handL, handR, w, width, girth, man, sleeves, nose } = shape;
   const P = (p) => m(p);
   ctx.fillStyle = fill;
   ctx.strokeStyle = stroke;
@@ -156,7 +162,7 @@ function drawBody(ctx, shape, m, fill, stroke) {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   for (const [s, e, wr_, hand] of [[sl, el, wl, handL], [sr, er, wr, handR]]) {
-    for (const [a, b, thick] of [[s, e, 0.26], [e, wr_, 0.2], [wr_, hand, 0.22]]) {
+    for (const [a, b, thick] of [[s, e, 0.26 * sleeves], [e, wr_, 0.2], [wr_, hand, 0.22]]) {
       const [ax, ay] = P(a), [bx, by] = P(b);
       if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = width * thick + 4; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); }
       ctx.strokeStyle = fill; ctx.lineWidth = width * thick; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
@@ -210,6 +216,9 @@ const CASES = [
   ["Man, arms close, ragged", { cx: 150, sy: 130, width: 140, man: true, arms: "sides", ragged: true, hipsInFrame: false }],
   ["Man, right arm raised, ragged", { cx: 150, sy: 150, width: 140, man: true, arms: "rightUp", ragged: true, hipsInFrame: false }],
   ["Man, arms down and out, ragged", { cx: 150, sy: 130, width: 130, man: true, arms: "down45", ragged: true, hipsInFrame: false }],
+  ["Man, shirt sleeves, arms 15° out", { cx: 150, sy: 120, width: 140, man: true, sleeves: 1.35, arms: 15, ragged: true, hipsInFrame: false }],
+  ["Man, shirt sleeves, arms up, no head", { cx: 150, sy: 90, width: 105, man: true, sleeves: 1.35, arms: 110, drag: 0.12, noMouth: true, ragged: true, hipsInFrame: false }],
+  ["Man, shirt sleeves, arms out, turned", { cx: 150, sy: 110, width: 100, yaw: 25, man: true, sleeves: 1.35, arms: "out", ragged: true, hipsInFrame: false }],
 ];
 
 const grid = document.getElementById("grid");
@@ -234,7 +243,8 @@ for (const [label, spec] of CASES) {
   drawBody(fig.querySelector(".bg").getContext("2d"), b.shape, ([x, y]) => [W - x, y], "#c79a7a", "#5a3a2a");
   // A raised arm is held against how the shoulders sat with the arms down,
   // so that pose is seen first, as it would be on a camera.
-  const before = spec.raise || spec.raiseBoth ? body({ ...spec, raise: false, raiseBoth: false, drag: 0 }) : null;
+  const raised = spec.raise || spec.raiseBoth || (typeof spec.arms === "number" && spec.arms > 60) || spec.arms === "out";
+  const before = raised ? body({ ...spec, raise: false, raiseBoth: false, arms: typeof spec.arms === "number" || spec.arms === "out" ? 8 : spec.arms, drag: 0 }) : null;
   panels.push({ out: fig.querySelector(".gl").getContext("2d"), b, before, spec, mask: useMask ? maskOf(b.shape) : null });
 }
 
