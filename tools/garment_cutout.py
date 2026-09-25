@@ -26,6 +26,14 @@ What it does:
      cream or peach saree whole, so it is off by default.
    - `--neck` is a line in photo pixels, left to right, above which
      everything goes: her head, her hair and her earrings.
+   - `--drop` is an outline, in photo pixels, of anything to take out
+     outright: the pallu where it hangs behind her arm, which from the front
+     is a strip beside the arm that cannot follow a different arm. Give it
+     once per outline.
+   - `--mend` is an outline where her arm lies over the garment's own edge.
+     Skin inside it is not cut but filled from the cloth around it, the same
+     way as hair: an arm that overlaps the side of her body hides cloth the
+     customer's body needs, and cutting it leaves a hole down their side.
    - `--hair` is a box where her hair falls over the garment. The dark mass
      in it is taken out and the hole filled with the garment's own print,
      copied from nearby in patches that best match the edge of the hole, so
@@ -82,7 +90,7 @@ def closed(mask, k):
     return filt(filt(mask, ImageFilter.MaxFilter(k)), ImageFilter.MinFilter(k))
 
 
-def fill_from_print(rgb, hole, source, tile=20):
+def fill_from_print(rgb, hole, source, tile=20, reach=(-60, 181)):
     """Fill `hole` with patches copied from `source`, a tile at a time.
 
     Each tile takes the shift whose copy best matches what already surrounds
@@ -108,7 +116,7 @@ def fill_from_print(rgb, hole, source, tile=20):
             ay, ax = np.nonzero(around)
             best = None
             for dy in range(-50, 51, 2):
-                for dx in range(-60, 181, 2):
+                for dx in range(reach[0], reach[1], 2):
                     if abs(dx) < 14 and abs(dy) < 14:
                         continue
                     sy, sx = cy + dy, cx + dx
@@ -142,6 +150,10 @@ def main():
     ap.add_argument("--skin", action="store_true", help="drop the model's arms, hands, neck and midriff")
     ap.add_argument("--neck", type=pair, nargs="+", default=None, metavar="X,Y",
                     help="a line across the neckline, left to right, in photo pixels; everything above it goes")
+    ap.add_argument("--drop", type=pair, nargs="+", action="append", default=[], metavar="X,Y",
+                    help="an outline, in photo pixels, of part of the garment to take out; once per outline")
+    ap.add_argument("--mend", type=pair, nargs="+", action="append", default=[], metavar="X,Y",
+                    help="an outline, in photo pixels, where an arm over the garment is filled with cloth rather than cut; once per outline")
     ap.add_argument("--hair", type=pair, default=None, metavar="X0,Y0,X1,Y1",
                     help="a box where hair falls over the garment, to be taken out and filled with the print")
     ap.add_argument("--anchors", type=pair, nargs=4, default=None, metavar="X,Y",
@@ -213,6 +225,19 @@ def main():
             rgb = fill_from_print(rgb, hole, source & near)
             skin &= ~hole
 
+    for outline in args.mend:
+        area = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(area).polygon([(x - x0, y - y0) for x, y in outline], fill=255)
+        area = np.asarray(area) > 127
+        hole = area & skin & (alpha > 0.5)
+        if hole.any():
+            cloth = closed((alpha > 0.5) & ~skin, 7) & ~skin & ~hole
+            ys, xs = np.nonzero(area)
+            near = np.zeros_like(cloth)
+            near[max(ys.min() - 80, 0):ys.max() + 80, max(xs.min() - 120, 0):xs.max() + 80] = True
+            rgb = fill_from_print(rgb, hole, filt(cloth, ImageFilter.MinFilter(5)) & near, reach=(-120, 61))
+            skin &= ~hole
+
     if args.skin:
         alpha = np.minimum(alpha, 1 - skin.astype(np.float32))
 
@@ -222,7 +247,12 @@ def main():
         ImageDraw.Draw(above).polygon([(0, 0), (w, 0), (w, line[-1][1])] + line[::-1] + [(0, line[0][1])], fill=255)
         alpha = np.minimum(alpha, 1 - (np.asarray(above) > 127).astype(np.float32))
 
-    if args.skin or args.neck or args.hair:
+    for outline in args.drop:
+        cut = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(cut).polygon([(x - x0, y - y0) for x, y in outline], fill=255)
+        alpha = np.minimum(alpha, 1 - (np.asarray(cut) > 127).astype(np.float32))
+
+    if args.skin or args.neck or args.hair or args.drop:
         # Whatever the cuts left stranded - a wisp of hair, an earring, a
         # fingertip - is not part of the garment, and nor is the hairline of
         # an arm's soft edge against the backdrop, which is neither skin nor
