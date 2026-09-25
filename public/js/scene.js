@@ -38,10 +38,15 @@ const EASE = 0.35;
 
 // How far the cloth's edge may be moved to meet the body's, as a share of
 // where the photo had it. The outline includes whatever the customer is
-// wearing and any arm held against the side, so an unbounded match would dress
-// a baggy jacket or both elbows. Guesses, to be settled on real people.
+// wearing, so an unbounded match would dress a baggy jacket. Guesses, to be
+// settled on real people.
 const EDGE_MIN = 0.8;
 const EDGE_MAX = 1.25;
+
+// How much of the edge reading is taken each frame - gentler than the fit,
+// because the outline's edge flickers wherever an arm nearly touches the
+// side, and a garment whose sides twitch reads as a glitch. A guess.
+const EDGE_EASE = 0.15;
 
 // An arm counts as raised when its elbow is higher than this far below the
 // shoulder, in shoulder widths; a hanging elbow is about 0.9 below. Raising an
@@ -49,11 +54,14 @@ const EDGE_MAX = 1.25;
 // is held where it was, relative to the other one.
 const RAISED = 0.4;
 
-// The forearm and the hand, as capsules round the pose model's points, in
-// shoulder widths: about 7 cm across a forearm and 9 across a hand against 34
-// between the shoulder joints, with some margin because the points wobble.
-// Estimates, not measured. Where these cross the body the customer's own arm
-// is drawn over the cloth.
+// The arms, as capsules round the pose model's points, in shoulder widths:
+// about 9 cm across an upper arm, 7 across a forearm and 9 across a hand
+// against 34 between the shoulder joints, with some margin because the points
+// wobble. Estimates, not measured. All three stop the reading of the body's
+// edge; where the forearm and hand cross the body the customer's own arm is
+// also drawn over the cloth. The upper arm is not, as the blouse's sleeve is
+// on it.
+const UPPER_ARM = 0.15;
 const FOREARM = 0.13;
 const HAND = 0.17;
 
@@ -175,6 +183,7 @@ export class Stage {
     this._fit = null;
     this._edges = null;
     this._across = null;
+    this._armPoints = new Map();
     this._wearing = null;
     this._video = { width: 0, height: 0 };
     this._textures = new Map();
@@ -325,28 +334,39 @@ export class Stage {
       : { shoulderLeft, shoulderRight: shoulderRight.copy(shoulderLeft).add(this._across) };
   }
 
-  // The forearms and hands, as segments in camera pixels with a radius each:
-  // elbow to wrist, and wrist to the middle of the hand.
+  // The arms, as segments in camera pixels with a radius each: shoulder to
+  // elbow, elbow to wrist, wrist to the middle of the hand. `cut` is what the
+  // shader draws in front of the cloth, `all` what stops the edge reading.
+  // The points are damped like the fit, or the cut-out round a forearm
+  // shivers.
   _arms(landmarks) {
     const { width: vw, height: vh } = this._video;
-    const px = (m) => [m.x * vw, m.y * vh];
-    const sl = px(landmarks[POSE.SHOULDER_LEFT]), sr = px(landmarks[POSE.SHOULDER_RIGHT]);
-    const width = Math.hypot(sl[0] - sr[0], sl[1] - sr[1]);
-    const out = [];
-    for (const [elbow, wrist, index, pinky] of [
-      [POSE.ELBOW_LEFT, POSE.WRIST_LEFT, POSE.INDEX_LEFT, POSE.PINKY_LEFT],
-      [POSE.ELBOW_RIGHT, POSE.WRIST_RIGHT, POSE.INDEX_RIGHT, POSE.PINKY_RIGHT],
-    ]) {
-      const e = landmarks[elbow], w = landmarks[wrist];
-      if (!seen(e) || !seen(w)) continue;
-      out.push({ a: px(e), b: px(w), r: FOREARM * width });
-      const i = landmarks[index], p = landmarks[pinky];
-      if (seen(i) && seen(p)) {
-        const hand = [((i.x + p.x) / 2) * vw, ((i.y + p.y) / 2) * vh];
-        out.push({ a: px(w), b: hand, r: HAND * width });
+    const point = (k) => {
+      const m = landmarks[k];
+      if (!seen(m)) {
+        this._armPoints.delete(k);
+        return null;
       }
+      const now = [m.x * vw, m.y * vh];
+      const was = this._armPoints.get(k);
+      const p = was ? [was[0] + (now[0] - was[0]) * EASE, was[1] + (now[1] - was[1]) * EASE] : now;
+      this._armPoints.set(k, p);
+      return p;
+    };
+    const sl = landmarks[POSE.SHOULDER_LEFT], sr = landmarks[POSE.SHOULDER_RIGHT];
+    const width = Math.hypot((sl.x - sr.x) * vw, (sl.y - sr.y) * vh);
+    const cut = [];
+    const all = [];
+    for (const [shoulder, elbow, wrist, index, pinky] of [
+      [POSE.SHOULDER_LEFT, POSE.ELBOW_LEFT, POSE.WRIST_LEFT, POSE.INDEX_LEFT, POSE.PINKY_LEFT],
+      [POSE.SHOULDER_RIGHT, POSE.ELBOW_RIGHT, POSE.WRIST_RIGHT, POSE.INDEX_RIGHT, POSE.PINKY_RIGHT],
+    ]) {
+      const s = point(shoulder), e = point(elbow), w = point(wrist), i = point(index), p = point(pinky);
+      if (s && e) all.push({ a: s, b: e, r: UPPER_ARM * width });
+      if (e && w) cut.push({ a: e, b: w, r: FOREARM * width });
+      if (w && i && p) cut.push({ a: w, b: [(i[0] + p[0]) / 2, (i[1] + p[1]) / 2], r: HAND * width });
     }
-    return out;
+    return { cut, all: all.concat(cut) };
   }
 
   // Hand the shader this frame's outline, arms and the map from the canvas
@@ -373,7 +393,7 @@ export class Stage {
     u.uMargin.value.set(MARGIN, (MARGIN * vw) / Math.max(vh, 1));
     this.renderer.getDrawingBufferSize(u.uResolution.value);
     for (let i = 0; i < 4; i++) {
-      const arm = arms[i];
+      const arm = arms.cut[i];
       u.uArmRadius.value[i] = arm ? arm.r : 0;
       if (arm) u.uArms.value[i].set(arm.a[0], arm.a[1], arm.b[0], arm.b[1]);
     }
@@ -381,8 +401,11 @@ export class Stage {
 
   // The customer's own edge at each level, read off the outline along the
   // rows of the fitted garment, kept within reach of where the photo had it
-  // and damped like the fit. A row that cannot be read - off the frame, or
-  // with an arm across the middle of it - keeps its last value.
+  // and damped. Where the edge cannot be seen - an arm against the side, an
+  // arm held out at shoulder height - that side eases back to the photo's own
+  // width, which is the photographed body's and the best guess there is. A
+  // whole row that cannot be read - off the frame, or with an arm across its
+  // middle - keeps its last value.
   _readEdges(mask, arms) {
     const photo = this.garment.photoEdges;
     if (!mask || !photo) return null;
@@ -390,7 +413,7 @@ export class Stage {
     const solid = (x, y) =>
       x >= 0 && y >= 0 && x < 1 && y < 1 &&
       mask.data[Math.floor(y * mask.height) * mask.width + Math.floor(x * mask.width)] >= 128;
-    const onArm = (x, y) => arms.some(({ a, b, r }) => toSegment(x * vw, y * vh, a, b) < r);
+    const onArm = (x, y) => arms.all.some(({ a, b, r }) => toSegment(x * vw, y * vh, a, b) < r);
     const f = this._fit;
     const q = {
       sl: this._toVideo(f.shoulderLeft), sr: this._toVideo(f.shoulderRight),
@@ -402,10 +425,13 @@ export class Stage {
       const p = photo[k], r = read[k], e = this._edges[k];
       if (!p || !r || !e) continue;
       for (const side of [0, 1]) {
-        const dir = side === 0 ? -1 : 1;
-        const had = (p[side] - 0.5) * dir;
-        const got = Math.min(Math.max((r[side] - 0.5) * dir, had * EDGE_MIN), had * EDGE_MAX);
-        e[side] += (0.5 + got * dir - e[side]) * EASE;
+        let want = p[side];
+        if (r[side] !== null) {
+          const dir = side === 0 ? -1 : 1;
+          const had = (p[side] - 0.5) * dir;
+          want = 0.5 + Math.min(Math.max((r[side] - 0.5) * dir, had * EDGE_MIN), had * EDGE_MAX) * dir;
+        }
+        e[side] += (want - e[side]) * EDGE_EASE;
       }
     }
     return this._edges;
@@ -439,6 +465,7 @@ export class Stage {
     this.visible = false;
     this._fit = null;
     this._edges = null;
+    this._armPoints.clear();
   }
 
   render() {

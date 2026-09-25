@@ -75,8 +75,11 @@ model's outline of the person is read as well, every frame:
 - **The cloth meets the body's edge.** At nine heights down the torso the
   photographed body's edge, read off the cut-out, is moved to the customer's,
   read off the outline, and the cloth between is stretched to suit - within a
-  fifth either way, because the outline includes a baggy shirt or an arm held
-  against the side.
+  fifth either way, because the outline includes a baggy shirt. The outline
+  includes the arms too, so the reading stops at them: with a hand on the hip
+  the arm is not a sleeve to stretch the blouse along, and with the arms down
+  against the sides the torso's edge cannot be seen at all. Wherever an arm
+  comes before the background, the cloth keeps the photo's own width there.
 - **The cloth stays on the body.** A shader clips it to the outline, a little
   past it for the cloth's thickness. The pallu hanging off the shoulder and
   the skirt below the hips are exempt - a saree's skirt is wider than the legs

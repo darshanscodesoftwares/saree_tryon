@@ -116,7 +116,7 @@ export class Garment {
       if (inside(this._freeShape, x, y)) return false;
       return data[(Math.floor(y * height) * width + Math.floor(x * width)) * 4 + 3] > 128;
     };
-    this.photoEdges = rowEdges(this._q, solid, () => false);
+    this.photoEdges = rowEdges(this._q, solid, () => false, { outermost: true });
   }
 
   // `frame` is the customer's two shoulders and two hips, in world space,
@@ -160,13 +160,18 @@ export class Garment {
   }
 }
 
-// The edge of a body at each level: along the row across it at that height,
-// from the middle outward on each side, the last point that `solid` says is
-// body before `stop` says to stop. Rows run from s = -0.6 to 1.6, far enough
-// out for a sleeve past the shoulder joint. Returns [left, right] per level,
-// or null for a level whose middle cannot be read: not body at all - off the
-// frame, say - or already stopped, as by an arm held across the chest.
-export function rowEdges({ sl, sr, hl, hr }, solid, stop) {
+// The edge of a body at each level, along the row across it at that height,
+// from the middle outward on each side. Rows run from s = -0.6 to 1.6, far
+// enough out for a sleeve past the shoulder joint.
+//
+// Two ways to read it. The photo's (`outermost`) takes the last point of
+// cloth on the row, so her midriff - a hole in the cloth, not its edge - is
+// skipped. The customer's takes the first point where the body gives way to
+// background, and gives up on that side if `stop` - an arm - comes first: an
+// arm lying against the side hides where the torso ends, and an arm held out
+// is not torso either. A side given up on is null; so is a whole level whose
+// middle cannot be read, off the frame or under an arm across the chest.
+export function rowEdges({ sl, sr, hl, hr }, solid, stop, { outermost = false } = {}) {
   const out = [];
   for (let k = 0; k < LEVELS; k++) {
     const t = k / (LEVELS - 1);
@@ -179,12 +184,20 @@ export function rowEdges({ sl, sr, hl, hr }, solid, stop) {
     }
     const edge = (dir) => {
       let last = 0.5;
+      let gap = 0;
       for (let s = 0.5; s >= -0.6 && s <= 1.6; s += dir * 0.02) {
         const p = at(s);
-        if (stop(...p)) break;
-        if (solid(...p)) last = s;
+        if (stop(...p)) return outermost ? last : null;
+        if (solid(...p)) {
+          last = s;
+          gap = 0;
+        } else if (!outermost && ++gap >= 2) {
+          // Two samples of background in a row, not one: a speck in the
+          // outline is not the body's edge.
+          return last;
+        }
       }
-      return last;
+      return outermost ? last : null;
     };
     out.push([edge(-1), edge(1)]);
   }
@@ -200,7 +213,7 @@ function restretch(s, t, photo, body) {
   const k0 = Math.floor(k), k1 = Math.min(k0 + 1, LEVELS - 1), f = k - k0;
   const at = (edges, side) => {
     const a = edges[k0], b = edges[k1];
-    if (!a || !b) return null;
+    if (!a || !b || a[side] === null || b[side] === null) return null;
     return a[side] + (b[side] - a[side]) * f;
   };
   const side = s < 0.5 ? 0 : 1;

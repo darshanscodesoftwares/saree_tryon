@@ -39,8 +39,10 @@ const useMask = params.get("mask") !== "0";
 // foreshorten), `tilt` drops her left shoulder, `lean` moves her hips sideways
 // against her shoulders, `girth` widens the outline round the same joints,
 // and `raise` lifts the right arm with its hand across the chest - dragging
-// the right shoulder point up by `drag`, as the pose model does.
-function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, raise = false, drag = 0, hipsInFrame }) {
+// the right shoulder point up by `drag`, as the pose model does. `arms` is
+// how they hang otherwise: "away" a little from the sides, as a model is
+// asked to stand, "sides" straight down against them, "hips" hands on hips.
+function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, raise = false, drag = 0, arms = "away", hipsInFrame }) {
   const w = width * Math.cos(yaw * Math.PI / 180);
   const dy = Math.tan(tilt * Math.PI / 180) * w / 2;
   // The proportions scene.js assumes for hips it cannot see, so a body with
@@ -50,8 +52,14 @@ function body({ cx, sy, width, yaw = 0, tilt = 0, lean = 0, girth = 1, raise = f
   const sl = [cx + w / 2, sy + dy], sr = [cx - w / 2, sy - dy];
   const hl = [cx + lean + hw / 2, sy + torso], hr = [cx + lean - hw / 2, sy + torso];
   const hang = (s, side) => {
-    const e = [s[0] + side * 0.12 * width, s[1] + 0.9 * width];
-    const wr = [e[0] + side * 0.05 * width, e[1] + 0.75 * width];
+    if (arms === "hips") {
+      const e = [s[0] + side * 0.55 * width, s[1] + 0.75 * width];
+      const wr = [cx + side * 0.62 * w, sy + 1.3 * width];
+      return [e, wr, [cx + side * 0.5 * w, sy + 1.4 * width]];
+    }
+    const out = arms === "sides" ? [0.08, 0] : [0.12, 0.05];
+    const e = [s[0] + side * out[0] * width, s[1] + 0.9 * width];
+    const wr = [e[0] + side * out[1] * width, e[1] + 0.75 * width];
     return [e, wr, [wr[0], wr[1] + 0.22 * width]];
   };
   const [el, wl, handL] = hang(sl, 1);
@@ -96,7 +104,10 @@ function drawBody(ctx, shape, m, fill, stroke) {
   const [nx, ny] = P([nose[0], nose[1] - width * 0.05]);
   ctx.beginPath(); ctx.ellipse(nx, ny, width * 0.22, width * 0.29, 0, 0, Math.PI * 2); ctx.fill(); if (stroke) ctx.stroke();
   // The torso: out past the joints at the shoulders, in at the waist, out at
-  // the hips, each side measured from the body's middle at that height.
+  // the hips, each side measured from the body's middle at that height. The
+  // widths are the mustard saree's model's own outline against the pose
+  // model's joints on her: 1.3 at the shoulders, 1.09 across the chest,
+  // 1.03 at the waist, 1.29 at the hips.
   const at = (t, k) => {
     const l = [sl[0] + (hl[0] - sl[0]) * t, sl[1] + (hl[1] - sl[1]) * t];
     const r = [sr[0] + (hr[0] - sr[0]) * t, sr[1] + (hr[1] - sr[1]) * t];
@@ -104,7 +115,7 @@ function drawBody(ctx, shape, m, fill, stroke) {
     const half = (w / 2) * k * girth;
     return [[c[0] + half, c[1]], [c[0] - half, c[1]]];
   };
-  const rows = [[0, 1.05], [0.3, 1.0], [0.65, 0.84], [1.0, 1.0], [1.4, 1.05]].map(([t, k]) => at(t, k));
+  const rows = [[0, 1.3], [0.3, 1.09], [0.6, 1.03], [1.0, 1.29], [1.4, 1.3]].map(([t, k]) => at(t, k));
   poly([...rows.map((r) => r[0]), ...rows.map((r) => r[1]).reverse()]);
   // The arms, as thick strokes: upper arm, forearm, hand.
   ctx.lineCap = "round";
@@ -137,6 +148,9 @@ const CASES = [
   ["Square-on, hips in frame", { cx: 150, sy: 110, width: 110, hipsInFrame: true }],
   ["Turned 35°, leaning, hips in frame", { cx: 155, sy: 110, width: 110, yaw: 35, tilt: 8, lean: -25, hipsInFrame: true }],
   ["Right arm up, hand across the chest", { cx: 150, sy: 150, width: 150, raise: true, drag: 0.15, hipsInFrame: false }],
+  ["Arms straight down against the sides", { cx: 150, sy: 120, width: 120, arms: "sides", hipsInFrame: true }],
+  ["Hands on hips", { cx: 150, sy: 120, width: 120, arms: "hips", hipsInFrame: true }],
+  ["Arms against the sides, broader body", { cx: 150, sy: 120, width: 120, arms: "sides", girth: 1.2, hipsInFrame: true }],
 ];
 
 const grid = document.getElementById("grid");
