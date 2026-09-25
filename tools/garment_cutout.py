@@ -34,6 +34,9 @@ What it does:
      Skin inside it is not cut but filled from the cloth around it, the same
      way as hair: an arm that overlaps the side of her body hides cloth the
      customer's body needs, and cutting it leaves a hole down their side.
+   - `--patch` is an outline of anything in front of the garment - hands
+     clasped at the waist, say - to be filled from the cloth around it,
+     whatever colour it is. Once per outline.
    - `--hair` is a box where her hair falls over the garment. The dark mass
      in it is taken out and the hole filled with the garment's own print,
      copied from nearby in patches that best match the edge of the hole, so
@@ -41,6 +44,9 @@ What it does:
 3. Measures. `--free` outlines the part of the garment that hangs off the
    body - the pallu beside the arm - which the viewer lets fall past the
    customer's outline where the rest is clipped to it.
+   `--elbows` is the model's two elbows, again as the pose model reads them,
+   and `--sleeve` the photo row where her blouse's sleeves end: together they
+   let the viewer turn each sleeve to follow the customer's upper arm.
    `--anchors` is four points in photo pixels - left shoulder, right
    shoulder, left hip, right hip, the model's own left and right, at the
    joints - and they are written out as shares of the picture, which is what
@@ -154,15 +160,23 @@ def main():
                     help="an outline, in photo pixels, of part of the garment to take out; once per outline")
     ap.add_argument("--mend", type=pair, nargs="+", action="append", default=[], metavar="X,Y",
                     help="an outline, in photo pixels, where an arm over the garment is filled with cloth rather than cut; once per outline")
+    ap.add_argument("--patch", type=pair, nargs="+", action="append", default=[], metavar="X,Y",
+                    help="an outline, in photo pixels, of something in front of the garment, to be filled from the cloth around it; once per outline")
     ap.add_argument("--hair", type=pair, default=None, metavar="X0,Y0,X1,Y1",
                     help="a box where hair falls over the garment, to be taken out and filled with the print")
     ap.add_argument("--anchors", type=pair, nargs=4, default=None, metavar="X,Y",
                     help="the model's left shoulder, right shoulder, left hip and right hip, in photo pixels")
+    ap.add_argument("--elbows", type=pair, nargs=2, default=None, metavar="X,Y",
+                    help="the model's left and right elbows, in photo pixels, as the pose model reads them")
+    ap.add_argument("--sleeve", type=float, default=None, metavar="Y",
+                    help="the photo row where the blouse's sleeves end")
     ap.add_argument("--free", type=pair, nargs="+", default=None, metavar="X,Y",
                     help="an outline round what may hang outside the customer's body - the pallu off the shoulder - in photo pixels")
     ap.add_argument("--size", type=int, default=1024, help="the longer side of the image written")
     ap.add_argument("--name", default=None, help="what to call the entry it prints")
     args = ap.parse_args()
+    if bool(args.elbows) != (args.sleeve is not None):
+        ap.error("--elbows and --sleeve go together: the viewer needs both to turn a sleeve")
 
     photo = Image.open(args.photo).convert("RGBA")
     x0, y0 = 0, 0
@@ -223,6 +237,18 @@ def main():
         near[max(hy0 - 60, 0):hy1 + 60, max(hx0 - 60, 0):hx1 + 220] = True
         if hole.any():
             rgb = fill_from_print(rgb, hole, source & near)
+            skin &= ~hole
+
+    for outline in args.patch:
+        area = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(area).polygon([(x - x0, y - y0) for x, y in outline], fill=255)
+        hole = (np.asarray(area) > 127) & (alpha > 0.5)
+        if hole.any():
+            cloth = closed((alpha > 0.5) & ~skin, 7) & ~skin & ~hole
+            ys, xs = np.nonzero(hole)
+            near = np.zeros_like(cloth)
+            near[max(ys.min() - 120, 0):ys.max() + 120, max(xs.min() - 120, 0):xs.max() + 120] = True
+            rgb = fill_from_print(rgb, hole, filt(cloth, ImageFilter.MinFilter(5)) & near, reach=(-120, 121))
             skin &= ~hole
 
     for outline in args.mend:
@@ -291,6 +317,18 @@ def main():
     fx = lambda v: (v - x0 - a) / w
     fy = lambda v: (v - y0 - c) / h
     name = args.name or args.out.split("/")[-1].rsplit(".", 1)[0]
+    sleeves = ""
+    if args.elbows:
+        (lex, ley), (rex, rey) = args.elbows
+        hem = ""
+        if args.sleeve is not None:
+            # As a share of the torso, shoulder line to hip line. Each side
+            # is measured down its own joint's column, since the shoulder
+            # line may slope, and the two are averaged into the one hem.
+            t = ((args.sleeve - sly) / (hly - sly) + (args.sleeve - sry) / (hry - sry)) / 2
+            hem = f"\n      hem: {t:.3f},"
+        sleeves = (f"\n    sleeves: {{\n      elbowLeft: [{fx(lex):.3f}, {fy(ley):.3f}],"
+                   f"\n      elbowRight: [{fx(rex):.3f}, {fy(rey):.3f}],{hem}\n    }},")
     free = ""
     if args.free:
         free = "\n    free: [" + ", ".join(f"[{fx(x):.3f}, {fy(y):.3f}]" for x, y in args.free) + "],"
@@ -305,7 +343,7 @@ def main():
       shoulderRight: [{fx(srx):.3f}, {fy(sry):.3f}],
       hipLeft: [{fx(hlx):.3f}, {fy(hly):.3f}],
       hipRight: [{fx(hrx):.3f}, {fy(hry):.3f}],
-    }},{free}
+    }},{free}{sleeves}
   }},""")
 
 
