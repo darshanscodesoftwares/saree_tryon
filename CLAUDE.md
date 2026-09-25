@@ -52,7 +52,10 @@ follow the customer's arm. For a model's arms, neck, hair, hands in front of
 the cloth and a hanging pallu, the tool also takes `--skin`, `--neck`,
 `--hair`, `--mend`, `--patch`, `--drop` and `--free`, and `--box` crops a
 composite (see its docstring). `--skin` eats gold, cream or peach cloth: for
-those, outline the arms with `--drop` and `--patch` instead. It prints the library entry to paste into
+those, add `--skin-hue` (skin is redder than gold) and `--skin-area` (where
+skin may be looked for). Draw a `--patch` outline's top edge along a belt or
+a border: the cloth below is pulled up over the patch, and its top is the
+one place it jumps. It prints the library entry to paste into
 `public/js/library.js`, with the command in a comment so the cut can be
 remade.
 
