@@ -18,26 +18,35 @@ export const SAREES = [
     // python3 tools/garment_cutout.py photos/measuredSaree.png public/textures/yellow-ikat.png \
     //     --plain --skin --hair 260,240,430,480 \
     //     --neck 200,325 290,318 390,345 430,358 470,362 520,336 590,298 700,290 760,300 \
-    //     --free 680,300 800,300 800,1370 595,1370 610,1000 655,800 665,450 \
+    //     --mend 600,445 642,445 628,560 635,660 648,760 628,760 612,650 604,550 \
+    //     --drop 660,300 800,300 800,1370 595,1370 610,1000 655,800 665,450 \
+    //     --drop 320,448 348,448 348,560 320,560 \
     //     --anchors 614,333 349,353 542,755 406,762 --name yellow-ikat
     //
     // The anchors are where the pose model itself puts her joints, read by
     // running public/pose-test.html on the photo - the same model that will
     // read the customer, so the two agree on what "shoulder" means. Placed
     // by eye they were a quarter wider at the shoulders and over half again
-    // at the hips, and the cloth came out squeezed. Her hair over her right
-    // shoulder is taken out and the blouse filled from its own print; her
-    // midriff is left open.
+    // at the hips, and the cloth came out squeezed.
+    //
+    // What else the cut does, and why:
+    // - her hair over her right shoulder is taken out and the blouse filled
+    //   from its own print;
+    // - her left arm overlaps the side of her body, so the cloth behind it is
+    //   filled from the cloth around it (--mend) - cut, it left a hole down
+    //   the customer's side where their shirt showed through;
+    // - the pallu where it hangs behind her left arm is taken out (the first
+    //   --drop): from the front it is a strip beside her arm, and on anyone
+    //   else it floated beside theirs. So is a sliver of shadow under her
+    //   right arm (the second);
+    // - her midriff is left open, as the drape has it.
     image: "textures/yellow-ikat.png",
     anchors: {
-      shoulderLeft: [0.747, 0.027],
-      shoulderRight: [0.173, 0.042],
-      hipLeft: [0.591, 0.347],
-      hipRight: [0.297, 0.352],
+      shoulderLeft: [0.871, 0.027],
+      shoulderRight: [0.202, 0.042],
+      hipLeft: [0.689, 0.347],
+      hipRight: [0.346, 0.352],
     },
-    // The pallu where it hangs down beside her left arm, free to fall past the
-    // customer's outline.
-    free: [[0.89, 0.002], [1.149, 0.002], [1.149, 0.814], [0.706, 0.814], [0.738, 0.533], [0.835, 0.381], [0.857, 0.115]],
   },
   {
     id: "demo-kanchipuram",
