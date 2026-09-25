@@ -50,16 +50,12 @@ const BODY_PAD = 0.25;
 // the rows just above SKIRT_FROM, since below that the cloth hangs free and
 // is not cut to the customer's outline: carried on there, it would be drawn
 // whole. Mirrored, not smeared: a mirrored brocade reads as more brocade,
-// where repeating the edge made streaks. The mirror swings up and down as it
-// goes out, by up to BODY_SWAY rows, because a flower mirrored straight
-// beside itself made a butterfly the eye went straight to; gliding steadily
-// down instead carried the waist belt up the customer's side in a sash; at 16
-// rows it left a saw-tooth wherever the cloth changed from one print to
-// another. It
-// starts BODY_INSET columns in from the edge and passes over pixels darker
-// than BODY_DIM of the row's own median: the side of a torso in the photo is
-// its shadow, and the mustard saree's pallu side, mirrored, was a brown band
-// down the customer's.
+// where repeating the edge made streaks. The mirror's axis is a smooth curve
+// BODY_INSET columns inside the edge, taken over BODY_AXIS rows either way;
+// see _bodyLayer. It passes over pixels darker than BODY_DIM of the row's
+// own median: the side of a torso in the photo is its shadow, and the
+// mustard saree's pallu side, mirrored, was a brown band down the
+// customer's.
 //
 // Before any of that, what is left of her beside the sleeves is taken out to
 // be filled like the rest: within SHADOW_REACH shoulder widths of a sleeve,
@@ -76,20 +72,11 @@ const BODY_PAD = 0.25;
 // the side of her body turning from the light, which with the arms down is
 // under the customer's arm, and with them held out was a dark band down the
 // customer's side. The mirror then carries lit cloth out over it.
-//
-// Each row is mirrored on its own, so wherever a row's edge jumps from the
-// next row's - the end of the belt, where a forearm was taken out - the
-// filled cloth came out in horizontal bands with hard lines between. What is
-// filled, and only that, is softened over BODY_SOFTEN rows and BODY_SOFTEN_X
-// columns either way; the photo's own cloth is left sharp. Softened down the
-// rows alone, over five, the bands became vertical streaks; a little both
-// ways reads as cloth turning away from the camera at the body's sides,
-// which it is. Guesses, by eye.
+// Guesses, by eye.
 const BODY_FADE = 0.1;
-const BODY_SOFTEN = 3;
-const BODY_SOFTEN_X = 2;
-const BODY_SWAY = 10;
+const BODY_AXIS = 30;
 const BODY_INSET = 3;
+const BODY_TRIM = 2;
 const SHADOW_REACH = 0.12;
 const BODY_SLIVER = 8;
 const BODY_DIM = 0.7;
@@ -412,6 +399,16 @@ export class Garment {
       }
       while (runs.length > 1 && runs[0][1] - runs[0][0] < BODY_SLIVER) clear(y, ...runs.shift());
       while (runs.length > 1 && runs[runs.length - 1][1] - runs[runs.length - 1][0] < BODY_SLIVER) clear(y, ...runs.pop());
+      // The photo's own edge is soft, blended with the pale backdrop, and
+      // beside the fill it showed as a thin light line: BODY_TRIM pixels of
+      // it go, for the fill to cover.
+      if (runs.length && t > 0 && t < SKIRT_FROM - BODY_FADE) {
+        const first = runs[0], last = runs[runs.length - 1];
+        clear(y, first[0], Math.min(first[0] + BODY_TRIM, first[1]));
+        first[0] = Math.min(first[0] + BODY_TRIM, first[1] - 1);
+        clear(y, Math.max(last[1] - BODY_TRIM, last[0]), last[1]);
+        last[1] = Math.max(last[1] - BODY_TRIM, last[0] + 1);
+      }
       if (runs.length) (left[y] = runs[0][0]), (right[y] = runs[runs.length - 1][1] - 1);
       for (let k = 1; k < runs.length; k++) {
         const g0 = runs[k - 1][1], g1 = runs[k][0];
@@ -426,50 +423,70 @@ export class Garment {
         }
       }
     }
-    const smoothRows = (edge) => {
-      const outRows = new Float32Array(H).fill(NaN);
+    // The mirror's axis on each side: a smooth curve just inside the torso's
+    // edge, the same for every row near it. Mirrored about each row's own
+    // edge, rows whose edges differed came out as horizontal bands, and
+    // softened to hide the bands, as blur. About one smooth axis the filled
+    // cloth is the photo's own cloth reflected whole, as in a mirror held to
+    // the body's side: coherent from row to row, with nothing to hide.
+    const axis = (edge, inward) => {
+      const n = BODY_AXIS;
+      // Taken from the rows' innermost edge nearby, so the axis is inside
+      // the cloth wherever an edge dips in - the notch a dropped forearm
+      // left - and then smoothed.
+      const deep = new Float32Array(H).fill(NaN);
       for (let y = 0; y < H; y++) {
-        const near = [];
-        for (let k = Math.max(0, y - 10); k <= Math.min(H - 1, y + 10); k++) if (!Number.isNaN(edge[k])) near.push(edge[k]);
-        if (near.length) outRows[y] = near.sort((a, b) => a - b)[near.length >> 1];
+        let best = NaN;
+        for (let k = Math.max(0, y - n); k <= Math.min(H - 1, y + n); k++) {
+          const e = edge[k];
+          if (Number.isNaN(e)) continue;
+          if (Number.isNaN(best) || (inward > 0 ? e > best : e < best)) best = e;
+        }
+        deep[y] = best;
       }
-      return outRows;
+      const out = new Float32Array(H).fill(NaN);
+      for (let y = 0; y < H; y++) {
+        let sum = 0, m = 0;
+        for (let k = Math.max(0, y - n); k <= Math.min(H - 1, y + n); k++) if (!Number.isNaN(deep[k])) (sum += deep[k]), m++;
+        if (m && !Number.isNaN(edge[y])) {
+          const a = sum / m + inward * BODY_INSET;
+          out[y] = inward > 0 ? Math.max(a, edge[y] + BODY_INSET) : Math.min(a, edge[y] - BODY_INSET);
+        }
+      }
+      return out;
     };
-    const ls = smoothRows(left), rs = smoothRows(right);
+    const aL = axis(left, 1), aR = axis(right, -1);
+    // How far in the reflection reaches before it turns back, the same for
+    // every row: a quarter of the torso's usual width, so that on a body only
+    // the first reflection is seen - past it the reflection of a reflection
+    // repeats, in chevrons - while it stays on this side of the body.
+    const widths = [];
+    for (let y = 0; y < H; y++) if (!Number.isNaN(left[y])) widths.push(right[y] - left[y]);
+    widths.sort((x, y) => x - y);
+    const span = Math.max(8, Math.round((widths[widths.length >> 1] || W) / 4));
+    const usable = (sx, sy) => {
+      if (sx < 0 || sx >= W || sy < 0 || sy >= H || !solid[sy * W + sx]) return false;
+      return luma(sy * W + sx) >= BODY_DIM * median[sy];
+    };
 
     for (let y = 0; y < H; y++) {
       const t = bodyAt(q, midX, (y + 0.5) / H)[1];
       const fade = smooth((t + BODY_FADE) / BODY_FADE) * (1 - smooth((t - SKIRT_FROM + BODY_FADE) / BODY_FADE));
-      if (fade <= 0 || Number.isNaN(ls[y]) || Number.isNaN(rs[y])) continue;
+      if (fade <= 0 || Number.isNaN(aL[y]) || Number.isNaN(aR[y])) continue;
       const alpha = Math.round(255 * fade);
-      // Mirrored about the smoothed edge where it is inside this row's own,
-      // and about the row's own where the smoothing has pushed it out - filled
-      // from the row's own either way, or the pixels between were left bare.
-      const edgeL = Math.max(Math.round(ls[y]), left[y]), edgeR = Math.min(Math.round(rs[y]), right[y]);
-      // How far in the mirror may reach before it turns back: a quarter of
-      // the row, so it stays on this side of the body.
-      const span = Math.max(4, Math.floor((edgeR - edgeL) / 4));
-      const usable = (sx, sy) => {
-        if (sx < 0 || sx >= W || sy < 0 || sy >= H || !solid[sy * W + sx]) return false;
-        return luma(sy * W + sx) >= BODY_DIM * median[sy];
-      };
-      const copy = (x, from, dir) => {
+      const copy = (x, a, dir) => {
         const o = (y * OW + x + P) * 4;
         if (d[o + 3] >= alpha) return;
-        const dist = Math.abs(x - from);
-        const m = dist % (2 * span);
+        const m = Math.abs(x - a) % (2 * span);
         const tri = m < span ? m : 2 * span - m;
-        let sx = from + dir * (BODY_INSET + tri);
-        let sy = Math.min(y + Math.round((BODY_SWAY * tri) / span), H - 1);
-        // Onto solid cloth, stepping in from the edge if the mirror lands in
-        // a gap or a shadow, and back up the rows if the glide has run off
-        // the cloth's foot.
-        let tries = 0;
-        while (tries++ < span && !usable(sx, sy)) sx += dir;
-        for (let up = 0; !usable(sx, sy) && up < 40 && sy > y; up += 4) {
-          sy = Math.max(y, sy - 4);
-          sx = from + dir * (BODY_INSET + (m < span ? m : 2 * span - m));
-          for (tries = 0; tries < span && !usable(sx, sy); tries++) sx += dir;
+        let sx = Math.round(a + dir * tri), sy = y;
+        // Where the reflection lands on a gap or a shadow, the same place a
+        // few rows up or down - which keeps to the reflection - and only
+        // then the other half of its swing.
+        for (let k = 1; k <= 12 && !usable(sx, sy); k++) sy = y + (k % 2 ? 1 : -1) * ((k + 1) >> 1);
+        if (!usable(sx, sy)) {
+          sx = Math.round(a + dir * (span - tri));
+          sy = y;
         }
         if (!usable(sx, sy)) return;
         const i = (sy * W + sx) * 4;
@@ -478,10 +495,9 @@ export class Garment {
         d[o + 2] = src[i + 2];
         d[o + 3] = alpha;
       };
-      for (let x = left[y] - 1; x >= -P; x--) copy(x, edgeL, 1);
-      for (let x = right[y] + 1; x < W + P; x++) copy(x, edgeR, -1);
+      for (let x = left[y] - 1; x >= -P; x--) copy(x, aL[y], 1);
+      for (let x = right[y] + 1; x < W + P; x++) copy(x, aR[y], -1);
     }
-    this._soften(d, OW, H, (x, y) => x < P || x >= W + P || !solid[y * W + x - P]);
     octx.putImageData(img, 0, 0);
 
     // The body grid's picture coordinates, into this wider picture.
@@ -489,49 +505,6 @@ export class Garment {
     for (let i = 0; i < uv.count; i++) uv.setX(i, (this.body.x[i] * W + P) / OW);
     uv.needsUpdate = true;
     return out;
-  }
-
-  // Soften the filled cloth: see BODY_SOFTEN. `filled(x, y)` says which
-  // pixels were filled rather than photographed; each is replaced by the
-  // average of the filled pixels within reach, weighted by how opaque they
-  // are, so the fill's own fade is kept. Across the columns, then down the
-  // rows.
-  _soften(d, OW, H, filled) {
-    const mask = new Uint8Array(OW * H);
-    for (let y = 0; y < H; y++) for (let x = 0; x < OW; x++) mask[y * OW + x] = filled(x, y) ? 1 : 0;
-    const pass = (r, dx, dy, n, len) => {
-      const line = new Float32Array(len * 4), use = new Uint8Array(len);
-      for (let l = 0; l < n; l++) {
-        const at = (k) => (dx ? l * OW + k : k * OW + l);
-        for (let k = 0; k < len; k++) {
-          const i = at(k);
-          use[k] = mask[i];
-          for (let c = 0; c < 4; c++) line[k * 4 + c] = d[i * 4 + c];
-        }
-        for (let k = 0; k < len; k++) {
-          if (!use[k] || line[k * 4 + 3] === 0) continue;
-          let R = 0, G = 0, B = 0, A = 0, m = 0;
-          for (let j = Math.max(0, k - r); j <= Math.min(len - 1, k + r); j++) {
-            if (!use[j]) continue;
-            const a = line[j * 4 + 3];
-            R += line[j * 4] * a;
-            G += line[j * 4 + 1] * a;
-            B += line[j * 4 + 2] * a;
-            A += a;
-            m++;
-          }
-          if (A > 0) {
-            const o = at(k) * 4;
-            d[o] = R / A;
-            d[o + 1] = G / A;
-            d[o + 2] = B / A;
-            d[o + 3] = A / m;
-          }
-        }
-      }
-    };
-    pass(BODY_SOFTEN_X, 1, 0, H, OW);
-    pass(BODY_SOFTEN, 0, 1, OW, H);
   }
 
   // The model's upper arms, for telling sleeve from body: see SLEEVE_REACH.
