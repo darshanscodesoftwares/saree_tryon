@@ -106,9 +106,10 @@ model's outline of the person is read as well, every frame:
 - **The sleeves follow the arms.** Each sleeve turns about its shoulder joint
   by the angle between the customer's upper arm and the model's - her elbows
   are read by the pose model too, and put through the same warp as the cloth.
-  Over the shoulder cap the cloth belongs to torso and sleeve both, so the
-  armpit stretches rather than tears; below the sleeve's hem the swing lets
-  go. A sleeve turns at most 115°: past that a short sleeve bunches on the
+  What turns is the cloth close round her upper arm, measured square to it:
+  an elbow-length sleeve lies alongside the torso, and the side of the body
+  next to it must stay put. Nothing above the joint turns, and below the
+  sleeve's hem the swing lets go. A sleeve turns at most 115°: past that a short sleeve bunches on the
   shoulder rather than following the arm up.
 
 Two things are worth knowing:

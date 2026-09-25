@@ -38,18 +38,24 @@ export const LEVELS = 9;
 // a saree as tight as trousers. From here down it hangs free.
 const SKIRT_FROM = 1.05;
 
-// A sleeve turns about its shoulder joint to follow the customer's upper arm.
-// The cloth over the joint belongs to torso and sleeve both, over a band
-// SLEEVE_BLEND shoulder widths wide centred on the joint, which is what keeps
-// the armpit from tearing when the arm goes up. Centred, because the joint is
-// the pivot: cloth there barely moves whatever the weight, so the shear the
-// band takes is least. A band that started AT the joint and ran outward
-// covered half the sleeve, and the sleeve smeared instead of turning as one
-// piece. The width is a guess, about the shoulder cap by eye. Below the
-// sleeve's hem the swing lets go over SLEEVE_FADE torsos - a guess, about 5
-// cm - so the side of the blouse under the sleeve stays with the body.
-const SLEEVE_BLEND = 0.2;
-const SLEEVE_FADE = 0.12;
+// A sleeve turns about its shoulder joint to follow the customer's upper arm,
+// and what turns is the cloth round the model's own upper arm: within
+// SLEEVE_REACH of it, measured square to the arm, in shoulder widths. The
+// sleeves' inner edges sat 0.06-0.13 inboard of the arm on the two photos
+// measured, so 0.1, blended over SLEEVE_BLEND either side. Measured square to
+// the arm and not across the body's rows, because an elbow-length sleeve lies
+// alongside the torso: counted by rows, the side of the body next to it
+// turned with the arm and zig-zagged with the hands on the hips.
+//
+// Along the arm the turn starts at the joint, over SLEEVE_CAP below it, and
+// nothing above it turns: cloth level with the joint on the neck side,
+// turned with an arm going up, rose toward the chin. Below the hem it lets go
+// over SLEEVE_FADE, centred on the hem, so the cloth under the sleeve stays
+// with the body. Those two are guesses.
+const SLEEVE_REACH = 0.1;
+const SLEEVE_BLEND = 0.1;
+const SLEEVE_CAP = 0.1;
+const SLEEVE_FADE = 0.15;
 
 // The most a sleeve turns. Past this a real short sleeve bunches on the
 // shoulder rather than following the arm up, and the cloth here, turned
@@ -106,7 +112,8 @@ export class Garment {
 
     // How much each vertex belongs to a sleeve - her left, her right - and so
     // turns with that arm: 0 on the torso, 1 out on the sleeve. Worked out
-    // once per saree, in setAnchors; the swing itself is per frame.
+    // once per saree, when its picture has loaded, since distances square to
+    // the arm need the picture's shape; the swing itself is per frame.
     this._sleeveLeft = new Float32Array(pos.count);
     this._sleeveRight = new Float32Array(pos.count);
     this._sleeves = null;
@@ -140,10 +147,13 @@ export class Garment {
       console.warn("sleeves given without a hem; the sleeves will not turn");
       sleeves = null;
     }
+    this._sleeveShape = sleeves;
     this._sleeves = sleeves && {
       left: bodyAt(this._q, ...sleeves.elbowLeft),
       right: bodyAt(this._q, ...sleeves.elbowRight),
     };
+    this._sleeveLeft.fill(0);
+    this._sleeveRight.fill(0);
     this._swing.left = this._swing.right = 0;
     for (let i = 0; i < this._x.length; i++) {
       const [s, t] = bodyAt(this._q, this._x[i], this._y[i]);
@@ -151,10 +161,6 @@ export class Garment {
       this._t[i] = t;
       const skirt = Math.min(Math.max((t - SKIRT_FROM) / 0.1, 0), 1);
       this._free[i] = Math.max(skirt, inside(free, this._x[i], this._y[i]) ? 1 : 0);
-      // Her left is at s = 0 and the cloth past it has s < 0; her right is
-      // at s = 1 and the cloth past it, s > 1.
-      this._sleeveLeft[i] = sleeves ? sleeveWeight(-s, t, sleeves.hem) : 0;
-      this._sleeveRight[i] = sleeves ? sleeveWeight(s - 1, t, sleeves.hem) : 0;
     }
     this.mesh.geometry.attributes.aFree.needsUpdate = true;
     this.photoEdges = null;
@@ -177,6 +183,44 @@ export class Garment {
       return data[(Math.floor(y * height) * width + Math.floor(x * width)) * 4 + 3] > 128;
     };
     this.photoEdges = rowEdges(this._q, solid, () => false, { outermost: true });
+    this._weighSleeves(image.width / image.height);
+  }
+
+  // How much each vertex belongs to each sleeve: see SLEEVE_REACH. Worked in
+  // the picture's own proportions - `aspect` is its width over its height -
+  // with the shoulder width as the unit.
+  _weighSleeves(aspect) {
+    this._sleeveLeft.fill(0);
+    this._sleeveRight.fill(0);
+    const sleeves = this._sleeveShape;
+    if (!sleeves) return;
+    const q = this._q;
+    const at = ([x, y]) => [x * aspect, y];
+    const width = Math.hypot((q.sl[0] - q.sr[0]) * aspect, q.sl[1] - q.sr[1]);
+    const middle = at([(q.sl[0] + q.sr[0] + q.hl[0] + q.hr[0]) / 4, (q.sl[1] + q.sr[1] + q.hl[1] + q.hr[1]) / 4]);
+    for (const [pivot, elbow, weights] of [
+      [q.sl, sleeves.elbowLeft, this._sleeveLeft],
+      [q.sr, sleeves.elbowRight, this._sleeveRight],
+    ]) {
+      const p = at(pivot), e = at(elbow);
+      const length = Math.hypot(e[0] - p[0], e[1] - p[1]);
+      const ux = (e[0] - p[0]) / length, uy = (e[1] - p[1]) / length;
+      // Square to the arm, pointing in toward the body's middle.
+      let nx = -uy, ny = ux;
+      if ((middle[0] - p[0]) * nx + (middle[1] - p[1]) * ny < 0) (nx = -nx), (ny = -ny);
+      // The hem, as a distance down the arm: it is given as a share of the
+      // torso, and the elbow's own share says how far down the arm that is.
+      // A sleeve past the elbow would need the forearm too; it is held at
+      // the elbow's reach and a little past.
+      const hem = length * Math.min(sleeves.hem / Math.max(bodyAt(q, ...elbow)[1], 1e-3), 1.2);
+      for (let i = 0; i < weights.length; i++) {
+        const vx = this._x[i] * aspect - p[0], vy = this._y[i] - p[1];
+        const along = vx * ux + vy * uy, inward = vx * nx + vy * ny;
+        weights[i] = (1 - smooth((inward / width - SLEEVE_REACH) / SLEEVE_BLEND + 0.5))
+          * smooth(along / width / SLEEVE_CAP)
+          * (1 - smooth((along - hem) / width / SLEEVE_FADE + 0.5));
+      }
+    }
   }
 
   // `frame` is the customer's two shoulders and two hips, in world space,
@@ -337,13 +381,6 @@ function restretch(s, t, photo, body) {
   if (p === null || c === null || Math.abs(p - 0.5) < 1e-3) return s;
   if (side === 0 ? s >= p : s <= p) return 0.5 + ((s - 0.5) * (c - 0.5)) / (p - 0.5);
   return c + (s - p);
-}
-
-// How much a point of the photo belongs to a sleeve: `out` is how far it sits
-// past the shoulder joint, in shoulder widths, `t` how far down the torso,
-// `hem` where the sleeve ends. See SLEEVE_BLEND.
-function sleeveWeight(out, t, hem) {
-  return smooth(out / SLEEVE_BLEND + 0.5) * (1 - smooth((t - hem) / SLEEVE_FADE));
 }
 
 const smooth = (x) => {
