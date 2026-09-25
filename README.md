@@ -79,7 +79,18 @@ model's outline of the person is read as well, every frame:
   includes the arms too, so the reading stops at them: with a hand on the hip
   the arm is not a sleeve to stretch the blouse along, and with the arms down
   against the sides the torso's edge cannot be seen at all. Wherever an arm
-  comes before the background, the cloth keeps the photo's own width there.
+  comes before the background, the cloth keeps the photo's own width there -
+  scaled to the customer's build.
+- **The cloth is sized to the customer's build.** Along the shoulder line,
+  which the arms do not hide while they hang, the customer's reach past the
+  joints is read against the model's, and the whole garment is widened by it.
+  A broad-shouldered customer is not dressed in a slim model's width, and
+  does not have to reach for the size slider - which, taken past the body,
+  is what showed the next problem.
+- **The outline is smoothed before anything reads it.** The pose model's
+  outline is blocky and changes every frame; cloth clipped to it straight
+  gets a lumpy edge that crawls. It is averaged over frames and blurred
+  first.
 - **The cloth stays on the body.** A shader clips it to the outline, a little
   past it for the cloth's thickness. The pallu hanging off the shoulder and
   the skirt below the hips are exempt - a saree's skirt is wider than the legs

@@ -48,6 +48,28 @@ const EDGE_MAX = 1.25;
 // side, and a garment whose sides twitch reads as a glitch. A guess.
 const EDGE_EASE = 0.15;
 
+// The customer's build: how far their shoulders reach past the joints, read
+// along the shoulder line - the one row the arms do not hide while they hang
+// down - against how far the model's did. The whole garment is widened by it,
+// so a broad-shouldered customer is not dressed in a slim model's width. It
+// is read only while that arm hangs (elbow within BUILD_ELBOW shoulder widths
+// of straight below the shoulder): an arm out to the side reads as shoulder.
+// Bounds and rates are guesses; the reading is slow on purpose, since build
+// does not change from frame to frame.
+const BUILD_MIN = 0.85;
+const BUILD_MAX = 1.4;
+const BUILD_EASE = 0.05;
+const BUILD_ELBOW = 0.3;
+
+// The outline as the pose model gives it is read in blocks and decided afresh
+// every frame, so its edge is ragged and crawls. Clipped to directly, cloth
+// that reaches past the body gets a lumpy edge that shimmers. So it is
+// averaged over frames (MASK_EASE of each new one) and blurred MASK_BLUR
+// samples each way - about 8 px of a 1280 frame - before anything reads it.
+// Guesses, chosen by eye against a ragged synthetic outline.
+const MASK_EASE = 0.3;
+const MASK_BLUR = 2;
+
 // An arm counts as raised when its elbow is higher than this far below the
 // shoulder, in shoulder widths; a hanging elbow is about 0.9 below. Raising an
 // arm drags the pose model's shoulder up with it, so a raised arm's shoulder
@@ -66,8 +88,8 @@ const FOREARM = 0.13;
 const HAND = 0.17;
 
 // How far past the outline the cloth may reach, as a share of the frame's
-// width. Cloth has thickness, and the outline is soft at its edge.
-const MARGIN = 0.012;
+// width. Cloth has thickness, and the outline is soft at its edge. A guess.
+const MARGIN = 0.02;
 
 // Clips the cloth to the customer's outline and cuts their forearms and hands
 // out of it. `vFree` is 1 where the cloth may hang past the outline - the
@@ -106,7 +128,7 @@ float garmentKeep() {
   near = max(near, onPerson(uv - vec2(uMargin.x, 0.0)));
   near = max(near, onPerson(uv + vec2(0.0, uMargin.y)));
   near = max(near, onPerson(uv - vec2(0.0, uMargin.y)));
-  float keep = mix(smoothstep(0.3, 0.7, near), 1.0, vFree);
+  float keep = mix(smoothstep(0.15, 0.6, near), 1.0, vFree);
 
   vec2 px = uv * uVideoSize;
   float arm = 0.0;
@@ -183,6 +205,8 @@ export class Stage {
     this._fit = null;
     this._edges = null;
     this._across = null;
+    this._build = [1, 1];
+    this._maskSum = null;
     this._armPoints = new Map();
     this._wearing = null;
     this._video = { width: 0, height: 0 };
@@ -309,8 +333,9 @@ export class Stage {
     }
 
     const arms = this._arms(landmarks);
-    this._setMask(mask, arms);
-    this.garment.update(this._fit, this._readEdges(mask, arms));
+    const outline = this._smooth(mask);
+    this._setMask(outline, arms);
+    this.garment.update(this._fit, this._readEdges(outline, arms));
     this.visible = true;
   }
 
@@ -369,6 +394,40 @@ export class Stage {
     return { cut, all: all.concat(cut) };
   }
 
+  // The outline, averaged over frames and blurred: see MASK_EASE. The same
+  // arrays are reused every frame; the frame's mask is only read.
+  _smooth(mask) {
+    if (!mask) return null;
+    const { width: w, height: h, data } = mask;
+    const n = w * h;
+    let m = this._maskSum;
+    if (!m || m.width !== w || m.height !== h) {
+      m = this._maskSum = { width: w, height: h, sum: Float32Array.from(data), row: new Float32Array(n), out: new Uint8Array(n) };
+    } else {
+      for (let i = 0; i < n; i++) m.sum[i] += (data[i] - m.sum[i]) * MASK_EASE;
+    }
+    const r = MASK_BLUR, k = 1 / (2 * r + 1);
+    const at = (v, max) => (v < 0 ? 0 : v > max ? max : v);
+    for (let y = 0; y < h; y++) {
+      const o = y * w;
+      let acc = 0;
+      for (let x = -r; x <= r; x++) acc += m.sum[o + at(x, w - 1)];
+      for (let x = 0; x < w; x++) {
+        m.row[o + x] = acc * k;
+        acc += m.sum[o + at(x + r + 1, w - 1)] - m.sum[o + at(x - r, w - 1)];
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      let acc = 0;
+      for (let y = -r; y <= r; y++) acc += m.row[at(y, h - 1) * w + x];
+      for (let y = 0; y < h; y++) {
+        m.out[y * w + x] = acc * k;
+        acc += m.row[at(y + r + 1, h - 1) * w + x] - m.row[at(y - r, h - 1) * w + x];
+      }
+    }
+    return { data: m.out, width: w, height: h };
+  }
+
   // Hand the shader this frame's outline, arms and the map from the canvas
   // to the camera frame.
   _setMask(mask, arms) {
@@ -419,22 +478,47 @@ export class Stage {
       sl: this._toVideo(f.shoulderLeft), sr: this._toVideo(f.shoulderRight),
       hl: this._toVideo(f.hipLeft), hr: this._toVideo(f.hipRight),
     };
+    this._readBuild(q, solid, photo[0]);
     const read = rowEdges(q, solid, onArm);
     if (!this._edges) this._edges = photo.map((e) => e && [...e]);
     for (let k = 0; k < LEVELS; k++) {
       const p = photo[k], r = read[k], e = this._edges[k];
       if (!p || !r || !e) continue;
       for (const side of [0, 1]) {
-        let want = p[side];
+        const dir = side === 0 ? -1 : 1;
+        const had = (p[side] - 0.5) * dir * this._build[side];
+        let want = had;
         if (r[side] !== null) {
-          const dir = side === 0 ? -1 : 1;
-          const had = (p[side] - 0.5) * dir;
-          want = 0.5 + Math.min(Math.max((r[side] - 0.5) * dir, had * EDGE_MIN), had * EDGE_MAX) * dir;
+          want = Math.min(Math.max((r[side] - 0.5) * dir, had * EDGE_MIN), had * EDGE_MAX);
         }
-        e[side] += (want - e[side]) * EDGE_EASE;
+        e[side] += (0.5 + want * dir - e[side]) * EDGE_EASE;
       }
     }
     return this._edges;
+  }
+
+  // How far the customer's shoulders reach past the joints against the
+  // model's, per side: see BUILD_MIN. `shoulders` is the photo's own reach
+  // along its shoulder line.
+  _readBuild(q, solid, shoulders) {
+    if (!shoulders) return;
+    const row = rowEdges(q, solid, () => false)[0];
+    if (!row) return;
+    const pts = this._armPoints;
+    for (const [side, shoulder, elbow, other] of [
+      [0, POSE.SHOULDER_LEFT, POSE.ELBOW_LEFT, POSE.SHOULDER_RIGHT],
+      [1, POSE.SHOULDER_RIGHT, POSE.ELBOW_RIGHT, POSE.SHOULDER_LEFT],
+    ]) {
+      const s = pts.get(shoulder), e = pts.get(elbow), o = pts.get(other);
+      if (!s || !e || !o || row[side] === null) continue;
+      const width = Math.hypot(s[0] - o[0], s[1] - o[1]);
+      const outward = (e[0] - s[0]) * Math.sign(s[0] - o[0]);
+      if (outward > BUILD_ELBOW * width || e[1] < s[1] + BUILD_ELBOW * width) continue;
+      const dir = side === 0 ? -1 : 1;
+      const ratio = ((row[side] - 0.5) * dir) / ((shoulders[side] - 0.5) * dir);
+      const want = Math.min(Math.max(ratio, BUILD_MIN), BUILD_MAX);
+      this._build[side] += (want - this._build[side]) * BUILD_EASE;
+    }
   }
 
   // The hips of a body whose hips are out of frame: straight down from the
@@ -465,6 +549,7 @@ export class Stage {
     this.visible = false;
     this._fit = null;
     this._edges = null;
+    this._maskSum = null;
     this._armPoints.clear();
   }
 

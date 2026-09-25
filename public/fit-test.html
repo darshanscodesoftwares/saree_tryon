@@ -129,7 +129,9 @@ function drawBody(ctx, shape, m, fill, stroke) {
   }
 }
 
-function maskOf(shape) {
+// The person mask for a body. `ragged` makes it like the pose model's: read
+// in blocks, with the edge decided afresh - and differently - every frame.
+function maskOf(shape, ragged = false) {
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
   const ctx = c.getContext("2d");
@@ -138,7 +140,18 @@ function maskOf(shape) {
   const rgba = ctx.getImageData(0, 0, W, H).data;
   const data = new Uint8Array(W * H);
   for (let i = 0; i < data.length; i++) data[i] = rgba[i * 4];
-  return { data, width: W, height: H };
+  if (!ragged) return { data, width: W, height: H };
+  const B = 6;
+  const out = new Uint8Array(W * H);
+  for (let by = 0; by < H; by += B) {
+    for (let bx = 0; bx < W; bx += B) {
+      let sum = 0, n = 0;
+      for (let y = by; y < Math.min(by + B, H); y++) for (let x = bx; x < Math.min(bx + B, W); x++) { sum += data[y * W + x]; n++; }
+      const v = sum / n / 255 + (Math.random() - 0.5) * 0.9 > 0.5 ? 255 : 0;
+      for (let y = by; y < Math.min(by + B, H); y++) for (let x = bx; x < Math.min(bx + B, W); x++) out[y * W + x] = v;
+    }
+  }
+  return { data: out, width: W, height: H };
 }
 
 const CASES = [
@@ -151,6 +164,9 @@ const CASES = [
   ["Arms straight down against the sides", { cx: 150, sy: 120, width: 120, arms: "sides", hipsInFrame: true }],
   ["Hands on hips", { cx: 150, sy: 120, width: 120, arms: "hips", hipsInFrame: true }],
   ["Arms against the sides, broader body", { cx: 150, sy: 120, width: 120, arms: "sides", girth: 1.2, hipsInFrame: true }],
+  ["Ragged outline, as the pose model's", { cx: 150, sy: 150, width: 150, arms: "sides", ragged: true, hipsInFrame: false }],
+  ["Ragged outline, sized up 1.4×", { cx: 150, sy: 150, width: 150, arms: "sides", ragged: true, scale: 1.4, hipsInFrame: false }],
+  ["Ragged, broader body, arms down", { cx: 150, sy: 150, width: 150, arms: "sides", girth: 1.25, ragged: true, hipsInFrame: false }],
 ];
 
 const grid = document.getElementById("grid");
@@ -168,17 +184,18 @@ for (const [label, spec] of CASES) {
   // A raised arm is held against how the shoulders sat with the arms down,
   // so that pose is seen first, as it would be on a camera.
   const before = spec.raise ? body({ ...spec, raise: false, drag: 0 }) : null;
-  stages.push({ stage, b, before, mask: useMask ? maskOf(b.shape) : null });
+  if (spec.scale) stage.settings.scale = spec.scale;
+  stages.push({ stage, b, before, ragged: spec.ragged, mask: useMask ? maskOf(b.shape) : null });
 }
 
 // The texture arrives asynchronously, and its edges are measured once it
-// has. The fit is damped, so it is run for enough frames to settle.
+// has. The fit is damped, and the build read slowly, so it is run for enough frames to settle.
 const ready = () => stages.every(({ stage }) => stage.material.map?.image && stage.garment.photoEdges);
 const wait = () => ready() ? draw() : setTimeout(wait, 50);
 function draw() {
-  for (const { stage, b, before, mask } of stages) {
+  for (const { stage, b, before, ragged, mask } of stages) {
     if (before) stage.update(before.marks, before.hipsSeen, mask && maskOf(before.shape));
-    for (let i = 0; i < 30; i++) stage.update(b.marks, b.hipsSeen, mask);
+    for (let i = 0; i < 60; i++) stage.update(b.marks, b.hipsSeen, mask && (ragged ? maskOf(b.shape, true) : mask));
     stage.render();
   }
   document.title = "Fit test - ready";

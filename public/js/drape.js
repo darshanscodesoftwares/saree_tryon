@@ -170,7 +170,9 @@ export class Garment {
 // background, and gives up on that side if `stop` - an arm - comes first: an
 // arm lying against the side hides where the torso ends, and an arm held out
 // is not torso either. A side given up on is null; so is a whole level whose
-// middle cannot be read, off the frame or under an arm across the chest.
+// middle cannot be read, off the frame or under an arm across the chest. The
+// photo's middle may be empty - the shoulder line runs through her neckline -
+// and its row is read regardless.
 export function rowEdges({ sl, sr, hl, hr }, solid, stop, { outermost = false } = {}) {
   const out = [];
   for (let k = 0; k < LEVELS; k++) {
@@ -178,7 +180,7 @@ export function rowEdges({ sl, sr, hl, hr }, solid, stop, { outermost = false } 
     const lx = sl[0] + (hl[0] - sl[0]) * t, ly = sl[1] + (hl[1] - sl[1]) * t;
     const rx = sr[0] + (hr[0] - sr[0]) * t, ry = sr[1] + (hr[1] - sr[1]) * t;
     const at = (s) => [lx + (rx - lx) * s, ly + (ry - ly) * s];
-    if (!solid(...at(0.5)) || stop(...at(0.5))) {
+    if ((!outermost && !solid(...at(0.5))) || stop(...at(0.5))) {
       out.push(null);
       continue;
     }
@@ -199,7 +201,9 @@ export function rowEdges({ sl, sr, hl, hr }, solid, stop, { outermost = false } 
       }
       return outermost ? last : null;
     };
-    out.push([edge(-1), edge(1)]);
+    const row = [edge(-1), edge(1)];
+    // A photo row with no cloth on one side at all has no edge there.
+    out.push(outermost && (row[0] === 0.5 || row[1] === 0.5) ? null : row);
   }
   return out;
 }

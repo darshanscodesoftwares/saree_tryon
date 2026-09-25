@@ -69,7 +69,8 @@ for (const [label, mask] of [["photo", undefined], ["fitted", body.mask], ["no o
     const wait = () => (stage.garment.photoEdges ? done() : setTimeout(wait, 50));
     wait();
   });
-  for (let i = 0; i < 30; i++) stage.update(m, body.hipsSeen, mask);
+  for (let i = 0; i < 60; i++) stage.update(m, body.hipsSeen, mask);
+  if (mask) log(`build read: ${stage._build.map((b) => b.toFixed(3)).join(" ")}`);
   stage.render();
 }
 document.title = "Pose test - ready";
