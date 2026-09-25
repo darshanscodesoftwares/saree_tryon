@@ -46,9 +46,11 @@ The anchors are the photographed model's left shoulder, right shoulder, left
 hip and right hip in photo pixels - her own left and right - **as the pose
 model reads them**, not as they look: copy the photo into `public/`, open
 `pose-test.html?img=<it>`, and it prints `--anchors` and `--elbows`. Delete
-the copy after; source photos are never committed. `--sleeve` is the photo
-row where the blouse's sleeves end; with the elbows it lets each sleeve
-follow the customer's arm. For a model's arms, neck, hair, hands in front of
+the copy after; source photos are never committed. The viewer fits the
+garment as one piece; turning the sleeves with the arms was tried and taken
+out, as it tore the cloth at the underarm on real bodies. `--elbows` and
+`--sleeve` still record where the model's arms are, for when it is tried
+again, and the viewer ignores them. For a model's arms, neck, hair, hands in front of
 the cloth and a hanging pallu, the tool also takes `--skin`, `--neck`,
 `--hair`, `--mend`, `--patch`, `--drop` and `--free`, and `--box` crops a
 composite (see its docstring). `--skin` eats gold, cream or peach cloth: for
