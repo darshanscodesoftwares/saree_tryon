@@ -65,24 +65,35 @@ export const SAREES = [
     tags: { fabric: "tissue silk", border: "blue", colour: "gold" },
     // python3 tools/garment_cutout.py photos/blueSaree.png public/textures/blue-saree.png \
     //     --box 920,0,1320,1024 --plain \
-    //     --neck 930,176 1005,174 1050,200 1080,222 1095,212 1140,166 1210,162 1320,162 \
-    //     --patch 1160,326 1212,326 1212,360 1180,440 1128,450 1128,412 1160,360 \
-    //     --patch 1005,405 1058,405 1058,438 1180,438 1180,505 1005,505 \
-    //     --drop 940,326 998,326 1006,410 1006,470 940,470 \
-    //     --drop 1213,160 1300,160 1300,880 1200,880 1200,415 1213,415 \
+    //     --skin --skin-hue 0.08 \
+    //     --skin-area 1010,150 1115,150 1115,236 1010,236 \
+    //     --skin-area 945,318 1024,318 1024,413 982,432 945,432 \
+    //     --neck 930,176 1005,173 1020,168 1026,178 1034,190 1035,222 1039,227 1045,224 1050,221 \
+    //            1055,218 1060,215 1065,212 1070,209 1075,207 1085,201 1105,190 1115,184 1125,179 \
+    //            1135,173 1140,170 1145,169 1150,166 1210,162 1320,162 \
+    //     --patch 1024,395 1025,413 1134,414 1137,402 1141,390 1146,376 1152,364 1158,352 1160,329 \
+    //             1192,329 1192,388 1187,398 1186,410 1177,416 1175,424 1170,448 1160,466 1146,478 \
+    //             1132,488 1122,504 1110,511 1090,515 1070,511 1056,502 1045,490 1032,478 1018,470 \
+    //             1004,460 992,448 982,432 986,421 994,412 1004,404 1014,398 \
+    //     --drop 1218,160 1300,160 1300,842 1192,842 1192,329 1218,329 \
     //     --anchors 1182,202 997,199 1144,464 1049,465 \
     //     --elbows 1187,340 973,341 --sleeve 326 --name blue-saree
     //
     // The photo is a pair: a turned close-up and, on the right, the full-length
     // front-on figure, which --box takes. Anchors and elbows are the pose
     // model's reading of that crop (pose-test on it), moved back into the
-    // photo's pixels. No --skin: gold tissue silk is warm, bright and half
-    // saturated, exactly the skin test, and it ate the saree whole. So her
-    // right forearm, beside the body, is dropped by outline; her left forearm
-    // and the clasped hands, in front of the pleats, are patched with the
-    // cloth from below them. The pallu hanging behind her left arm is
-    // dropped, as the mustard one's was. The choker and the waist belt stay:
-    // they are how the saree is styled in the shop's own photo.
+    // photo's pixels.
+    //
+    // Gold tissue silk is as warm, bright and half saturated as skin, so the
+    // skin is told by hue (skin 0.04-0.07 round the wheel, this gold 0.09 and
+    // up) and looked for only in the V of the neckline and on her right
+    // forearm: the weave's pink flowers are as red as skin. The neckline cut
+    // runs down her blouse's edge and up the pallu's teal border, taking the
+    // necklace with the skin. Her hands, both wrists of bangles and her left
+    // forearm are in front of the pleats: the --patch outline pulls the cloth
+    // below up over them, its top edge along the belt and the teal border.
+    // The pallu hanging behind her left arm is dropped, as the mustard one's
+    // was; the waist belt stays, as the shop styled it.
     image: "textures/blue-saree.png",
     anchors: {
       shoulderLeft: [0.819, 0.043],
