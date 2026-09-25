@@ -7,10 +7,11 @@
 // Cloth that reaches past her joints in the photo reaches past the
 // customer's. `free`, where given, outlines what may hang past the customer's
 // outline - the pallu off the shoulder - where the rest is clipped to it.
-// `sleeves` is where her elbows are, and how far down the torso her sleeves
-// end, so each sleeve can turn to follow the customer's upper arm. `tools/garment_cutout.py` writes the image and prints the
-// anchors; they are recorded here so the cut can be remade from the photo the
-// shop keeps.
+// `tools/garment_cutout.py` writes the image and prints the anchors; they are
+// recorded here so the cut can be remade from the photo the shop keeps. The
+// commands also pass her elbows and sleeve hem, which the tool prints as a
+// `sleeves` block: the viewer fits the garment as one piece and does not use
+// it, so it is left out of the entries.
 //
 export const SAREES = [
   {
@@ -21,7 +22,7 @@ export const SAREES = [
     //     --plain --skin --hair 260,240,430,480 \
     //     --neck 200,325 290,318 390,345 430,358 470,362 520,336 590,298 700,290 760,300 \
     //     --mend 600,445 642,445 628,560 635,660 648,760 628,760 612,650 604,550 \
-    //     --drop 648,300 800,300 800,1370 595,1370 610,1000 655,800 665,450 657,400 650,340 \
+    //     --drop 660,300 800,300 800,1370 595,1370 610,1000 655,800 665,450 \
     //     --drop 320,448 348,448 348,560 320,560 \
     //     --anchors 614,333 349,353 542,755 406,762 \
     //     --elbows 639,549 302,585 --sleeve 445 --name yellow-ikat
@@ -30,8 +31,7 @@ export const SAREES = [
     // joints, read by running public/pose-test.html on the photo - the same
     // model that will read the customer, so the two agree on what "shoulder"
     // means. Placed by eye the anchors were a quarter wider at the shoulders
-    // and over half again at the hips, and the cloth came out squeezed. The
-    // sleeve hem is the row where both sleeves end, off the photo.
+    // and over half again at the hips, and the cloth came out squeezed.
     //
     // What else the cut does, and why:
     // - her hair over her right shoulder is taken out and the blouse filled
@@ -41,24 +41,15 @@ export const SAREES = [
     //   the customer's side where their shirt showed through;
     // - the pallu where it hangs behind her left arm is taken out (the first
     //   --drop): from the front it is a strip beside her arm, and on anyone
-    //   else it floated beside theirs. Its edge follows the outside of her
-    //   sleeve, since the pallu's fold shows there too and was carried up
-    //   the customer's arm as a yellow wedge. So is a sliver of shadow under
-    //   her right arm (the second);
+    //   else it floated beside theirs. So is a sliver of shadow under her
+    //   right arm (the second);
     // - her midriff is left open, as the drape has it.
     image: "textures/yellow-ikat.png",
     anchors: {
-      shoulderLeft: [0.873, 0.027],
-      shoulderRight: [0.203, 0.042],
-      hipLeft: [0.691, 0.347],
-      hipRight: [0.347, 0.352],
-    },
-    // Her arms hang nearly straight, 7° and 11° out from vertical: the pose
-    // the sleeves are laid along the customer's arms from.
-    sleeves: {
-      elbowLeft: [0.937, 0.191],
-      elbowRight: [0.084, 0.218],
-      hem: 0.245,
+      shoulderLeft: [0.871, 0.027],
+      shoulderRight: [0.202, 0.042],
+      hipLeft: [0.689, 0.347],
+      hipRight: [0.346, 0.352],
     },
   },
   {
@@ -73,11 +64,10 @@ export const SAREES = [
     //     --neck 930,176 1005,173 1020,168 1026,178 1034,190 1035,222 1039,227 1045,224 1050,221 \
     //            1055,218 1060,215 1065,212 1070,209 1075,207 1085,201 1105,190 1115,184 1125,179 \
     //            1135,173 1140,170 1145,169 1150,166 1210,162 1320,162 \
-    //     --patch 1024,395 1025,413 1134,414 1177,416 1175,424 1170,448 1160,466 1146,478 \
+    //     --patch 1024,395 1025,413 1134,414 1137,402 1141,390 1146,376 1152,364 1158,352 1160,329 \
+    //             1192,329 1192,388 1187,398 1186,410 1177,416 1175,424 1170,448 1160,466 1146,478 \
     //             1132,488 1122,504 1110,511 1090,515 1070,511 1056,502 1045,490 1032,478 1018,470 \
     //             1004,460 992,448 982,432 986,421 994,412 1004,404 1014,398 \
-    //     --drop 1160,329 1192,329 1192,388 1187,398 1186,408 1177,411 1134,410 1137,402 1141,390 \
-    //            1146,376 1152,364 1158,352 \
     //     --drop 1218,160 1300,160 1300,842 1192,842 1192,329 1218,329 \
     //     --anchors 1182,202 997,199 1144,464 1049,465 \
     //     --elbows 1187,340 973,341 --sleeve 326 --name blue-saree
@@ -93,25 +83,16 @@ export const SAREES = [
     // forearm: the weave's pink flowers are as red as skin. The neckline cut
     // runs down her blouse's edge and up the pallu's teal border, taking the
     // necklace with the skin. Her hands, both wrists of bangles and her left
-    // forearm are in front of the pleats. Below the belt the --patch outline
-    // pulls the cloth below up over them. Above it, her left forearm is
-    // dropped instead (the first --drop): it lies over the side of her waist,
-    // and cloth pulled up over it there came out as a column of pleats
-    // standing beside the belt; dropped, the body layer's own side fills it.
+    // forearm are in front of the pleats: the --patch outline pulls the cloth
+    // below up over them, its top edge along the belt and the teal border.
     // The pallu hanging behind her left arm is dropped, as the mustard one's
     // was; the waist belt stays, as the shop styled it.
     image: "textures/blue-saree.png",
     anchors: {
-      shoulderLeft: [0.819, 0.043],
-      shoulderRight: [0.149, 0.04],
-      hipLeft: [0.681, 0.35],
-      hipRight: [0.337, 0.351],
-    },
-    // Elbow-length sleeves: they end nearly halfway down the torso.
-    sleeves: {
-      elbowLeft: [0.837, 0.205],
-      elbowRight: [0.062, 0.206],
-      hem: 0.475,
+      shoulderLeft: [0.819, 0.042],
+      shoulderRight: [0.149, 0.039],
+      hipLeft: [0.681, 0.349],
+      hipRight: [0.337, 0.35],
     },
   },
   {
