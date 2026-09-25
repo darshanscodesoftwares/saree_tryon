@@ -60,6 +60,44 @@ export const SAREES = [
     },
   },
   {
+    id: "blue-saree",
+    name: "Blue, gold brocade",
+    tags: { fabric: "tissue silk", border: "blue", colour: "gold" },
+    // python3 tools/garment_cutout.py photos/blueSaree.png public/textures/blue-saree.png \
+    //     --box 920,0,1320,1024 --plain \
+    //     --neck 930,176 1005,174 1050,200 1080,222 1095,212 1140,166 1210,162 1320,162 \
+    //     --patch 1160,326 1212,326 1212,360 1180,440 1128,450 1128,412 1160,360 \
+    //     --patch 1005,405 1058,405 1058,438 1180,438 1180,505 1005,505 \
+    //     --drop 940,326 998,326 1006,410 1006,470 940,470 \
+    //     --drop 1213,160 1300,160 1300,880 1200,880 1200,415 1213,415 \
+    //     --anchors 1182,202 997,199 1144,464 1049,465 \
+    //     --elbows 1187,340 973,341 --sleeve 326 --name blue-saree
+    //
+    // The photo is a pair: a turned close-up and, on the right, the full-length
+    // front-on figure, which --box takes. Anchors and elbows are the pose
+    // model's reading of that crop (pose-test on it), moved back into the
+    // photo's pixels. No --skin: gold tissue silk is warm, bright and half
+    // saturated, exactly the skin test, and it ate the saree whole. So her
+    // right forearm, beside the body, is dropped by outline; her left forearm
+    // and the clasped hands, in front of the pleats, are patched with the
+    // cloth from below them. The pallu hanging behind her left arm is
+    // dropped, as the mustard one's was. The choker and the waist belt stay:
+    // they are how the saree is styled in the shop's own photo.
+    image: "textures/blue-saree.png",
+    anchors: {
+      shoulderLeft: [0.819, 0.043],
+      shoulderRight: [0.149, 0.04],
+      hipLeft: [0.681, 0.35],
+      hipRight: [0.337, 0.351],
+    },
+    // Elbow-length sleeves: they end nearly halfway down the torso.
+    sleeves: {
+      elbowLeft: [0.837, 0.205],
+      elbowRight: [0.062, 0.206],
+      hem: 0.475,
+    },
+  },
+  {
     id: "demo-kanchipuram",
     name: "Demo, Kanchipuram silk",
     tags: { fabric: "silk", border: "zari", colour: "maroon" },
