@@ -123,8 +123,11 @@ const UPPER_ARM_FROM = 0.3;
 // the forearms with the hands on the hips. So it is also cut off at the
 // customer's torso's edge as read at each level, EDGE_CLIP shoulder widths
 // out: loosely, since the levels are coarse and the outline gives the
-// torso's own side. A guess.
-const EDGE_CLIP = 0.05;
+// torso's own side. At 0.05 the straight runs between the levels were the
+// garment's edge, and a customer saw their saree's sides as a hexagon; at
+// 0.15 the outline, smooth, is the edge, and the levels only stop the cloth
+// short of an arm held well away. A guess.
+const EDGE_CLIP = 0.15;
 const FOREARM = 0.13;
 const HAND = 0.17;
 
