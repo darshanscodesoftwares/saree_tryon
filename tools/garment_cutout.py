@@ -23,7 +23,9 @@ What it does:
    - `--skin` drops her arms, hands, neck and midriff: skin-coloured areas
      big enough to be skin. A skin-toned thread in a border is too small to
      count, which is why it is by area and not by pixel. It will still eat a
-     cream or peach saree whole, so it is off by default.
+     cream, peach or gold saree whole - a gold tissue silk went entirely - so
+     it is off by default; for such a saree outline the arms with `--drop`
+     and `--patch` instead.
    - `--neck` is a line in photo pixels, left to right, above which
      everything goes: her head, her hair and her earrings.
    - `--drop` is an outline, in photo pixels, of anything to take out
