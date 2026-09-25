@@ -70,47 +70,51 @@ body's axis as it did in the photo.
 
 Four points alone give a sticker: the cloth stops where the photo's did, and
 hangs over the background wherever the customer is narrower. So the pose
-model's outline of the person is read as well, every frame:
+model's outline of the person is read as well, every frame, and the garment
+is drawn in two layers, like a paper doll:
 
-- **The cloth meets the body's edge.** At nine heights down the torso the
-  photographed body's edge, read off the cut-out, is moved to the customer's,
-  read off the outline, and the cloth between is stretched to suit - within a
-  fifth either way, because the outline includes a baggy shirt. The outline
-  includes the arms too, so the reading stops at them: with a hand on the hip
-  the arm is not a sleeve to stretch the blouse along, and with the arms down
-  against the sides the torso's edge cannot be seen at all. Wherever an arm
-  comes before the background, the cloth keeps the photo's own width there -
-  scaled to the customer's build.
-- **The cloth is sized to the customer's build.** Along the shoulder line,
+- **The body layer reaches past any body and is cut to it.** When a saree
+  loads, its picture is made into a body layer: the sleeves taken out, and
+  each row of the torso carried on outward by mirroring the cloth beside the
+  edge - swinging up and down as it goes, so a flower is not doubled into a
+  butterfly, and passing over the torso's shaded sides and what is left of
+  the model's hands. A shader then cuts it to the customer's outline, a
+  centimetre or so past it for the cloth's thickness, and to the torso's own
+  edge as read at nine heights, so it does not creep onto an arm held away
+  from the body. A broader customer, or a man's straight waist, is covered
+  without the print being pulled wide.
+- **The sleeves are their own layer.** Each sleeve turns whole about the
+  customer's shoulder joint by the angle between their upper arm and the
+  model's - her elbows are read by the pose model too. Nothing joins the two
+  layers, so nothing stretches between them: a raised arm shows the body
+  layer's cloth where the sleeve was, as a blouse does, where one sheet of
+  cloth was pulled out under the arm like elastic. What counts as sleeve is
+  the cloth close round her upper arm, measured square to it, and nothing
+  above the joint. A sleeve turns at most 115°.
+- **The edge is read at the hips too.** The customer's edge is looked for
+  well past each joint: the hip joints are half as far apart as the
+  shoulders, and looked for as near as at the shoulders, the hips' outline
+  was never found and the skirt kept the model's width. The skirt, which
+  hangs free, is widened to the hips; above it the body layer does the
+  covering. Where an arm lies against the side the torso reaches at least as
+  far as the arm, so the cloth goes under it.
+- **The sleeves are sized to the customer's build.** Along the shoulder line,
   which the arms do not hide while they hang, the customer's reach past the
-  joints is read against the model's, and the whole garment is widened by it.
-  A broad-shouldered customer is not dressed in a slim model's width, and
-  does not have to reach for the size slider - which, taken past the body,
-  is what showed the next problem.
+  joints is read against the model's, and the sleeves hang that far out.
 - **The outline is smoothed before anything reads it.** The pose model's
   outline is blocky and changes every frame; cloth clipped to it straight
   gets a lumpy edge that crawls. It is averaged over frames and blurred
-  first.
-- **The cloth stays on the body.** A shader clips it to the outline, a little
-  past it for the cloth's thickness. The pallu hanging off the shoulder and
-  the skirt below the hips are exempt - a saree's skirt is wider than the legs
-  in it. Each entry outlines its own pallu as `free`.
+  first, and the cut round it is reached for in twelve directions, not four,
+  so a sloping shoulder or hip is not a staircase.
 - **Arms go in front.** The forearms and hands, from the pose model's elbows,
-  wrists and fingers, are cut out of the cloth wherever they cross it.
+  wrists and fingers, are cut out of both layers; the upper arm below the
+  sleeve's hem out of the body layer.
 - **A raised arm does not drag the garment.** Raising an arm pulls the pose
   model's shoulder point up and out with it; that shoulder is held where it
   sat against the other one while the arm is up. With both arms up the
   shoulder line is held against the mouth instead, which stays put in a
   shrug - and with the hips out of frame the garment's whole height comes
   from the shoulder width, so a spread shoulder line made it grow.
-- **The sleeves follow the arms.** Each sleeve turns about its shoulder joint
-  by the angle between the customer's upper arm and the model's - her elbows
-  are read by the pose model too, and put through the same warp as the cloth.
-  What turns is the cloth close round her upper arm, measured square to it:
-  an elbow-length sleeve lies alongside the torso, and the side of the body
-  next to it must stay put. Nothing above the joint turns, and below the
-  sleeve's hem the swing lets go. A sleeve turns at most 115°: past that a short sleeve bunches on the
-  shoulder rather than following the arm up.
 
 Two things are worth knowing:
 
