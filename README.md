@@ -98,14 +98,24 @@ model's outline of the person is read as well, every frame:
 - **Arms go in front.** The forearms and hands, from the pose model's elbows,
   wrists and fingers, are cut out of the cloth wherever they cross it.
 - **A raised arm does not drag the garment.** Raising an arm pulls the pose
-  model's shoulder point up with it; that shoulder is held where it sat
-  against the other one while the arm is up.
+  model's shoulder point up and out with it; that shoulder is held where it
+  sat against the other one while the arm is up. With both arms up the
+  shoulder line is held against the mouth instead, which stays put in a
+  shrug - and with the hips out of frame the garment's whole height comes
+  from the shoulder width, so a spread shoulder line made it grow.
+- **The sleeves follow the arms.** Each sleeve turns about its shoulder joint
+  by the angle between the customer's upper arm and the model's - her elbows
+  are read by the pose model too, and put through the same warp as the cloth.
+  Over the shoulder cap the cloth belongs to torso and sleeve both, so the
+  armpit stretches rather than tears; below the sleeve's hem the swing lets
+  go. A sleeve turns at most 115°: past that a short sleeve bunches on the
+  shoulder rather than following the arm up.
 
 Two things are worth knowing:
 
 - **Anchors are the pose model's own reading of the photo.** Run
   `public/pose-test.html?img=<photo>` on the source photo and it prints the
-  `--anchors` to use. Placed by eye they came out a quarter too wide at the
+  `--anchors` and `--elbows` to use. Placed by eye they came out a quarter too wide at the
   shoulders and over half again at the hips, because the pose model's points
   sit at the joints, well inside the outline; the customer is read by the same
   model, so the photo has to be as well.

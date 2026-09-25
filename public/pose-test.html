@@ -49,6 +49,8 @@ const m = body.marks;
 const px = (k) => `${(m[k].x * img.naturalWidth).toFixed(0)},${(m[k].y * img.naturalHeight).toFixed(0)}`;
 log(`pose model, in photo pixels: shoulders L ${px(POSE.SHOULDER_LEFT)}  R ${px(POSE.SHOULDER_RIGHT)}   hips L ${px(POSE.HIP_LEFT)}  R ${px(POSE.HIP_RIGHT)}   mouth L ${px(POSE.MOUTH_LEFT)}  R ${px(POSE.MOUTH_RIGHT)}   hips seen: ${body.hipsSeen}`);
 log(`--anchors ${px(POSE.SHOULDER_LEFT)} ${px(POSE.SHOULDER_RIGHT)} ${px(POSE.HIP_LEFT)} ${px(POSE.HIP_RIGHT)}`);
+log(`--elbows ${px(POSE.ELBOW_LEFT)} ${px(POSE.ELBOW_RIGHT)}`);
+log(`wrists L ${px(POSE.WRIST_LEFT)}  R ${px(POSE.WRIST_RIGHT)}`);
 log(`mask: ${body.mask ? body.mask.width + "x" + body.mask.height : "none"}`);
 
 // Three panels: the photo, the photo with the garment, and the garment with

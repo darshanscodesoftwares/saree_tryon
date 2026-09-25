@@ -6,7 +6,9 @@
 // way the pose model reads the customer, and named for her own left and right.
 // Cloth that reaches past her joints in the photo reaches past the
 // customer's. `free`, where given, outlines what may hang past the customer's
-// outline - the pallu off the shoulder - where the rest is clipped to it. `tools/garment_cutout.py` writes the image and prints the
+// outline - the pallu off the shoulder - where the rest is clipped to it.
+// `sleeves` is where her elbows are, and how far down the torso her sleeves
+// end, so each sleeve can turn to follow the customer's upper arm. `tools/garment_cutout.py` writes the image and prints the
 // anchors; they are recorded here so the cut can be remade from the photo the
 // shop keeps.
 //
@@ -21,13 +23,15 @@ export const SAREES = [
     //     --mend 600,445 642,445 628,560 635,660 648,760 628,760 612,650 604,550 \
     //     --drop 660,300 800,300 800,1370 595,1370 610,1000 655,800 665,450 \
     //     --drop 320,448 348,448 348,560 320,560 \
-    //     --anchors 614,333 349,353 542,755 406,762 --name yellow-ikat
+    //     --anchors 614,333 349,353 542,755 406,762 \
+    //     --elbows 639,549 302,585 --sleeve 445 --name yellow-ikat
     //
-    // The anchors are where the pose model itself puts her joints, read by
-    // running public/pose-test.html on the photo - the same model that will
-    // read the customer, so the two agree on what "shoulder" means. Placed
-    // by eye they were a quarter wider at the shoulders and over half again
-    // at the hips, and the cloth came out squeezed.
+    // The anchors and elbows are where the pose model itself puts her
+    // joints, read by running public/pose-test.html on the photo - the same
+    // model that will read the customer, so the two agree on what "shoulder"
+    // means. Placed by eye the anchors were a quarter wider at the shoulders
+    // and over half again at the hips, and the cloth came out squeezed. The
+    // sleeve hem is the row where both sleeves end, off the photo.
     //
     // What else the cut does, and why:
     // - her hair over her right shoulder is taken out and the blouse filled
@@ -46,6 +50,13 @@ export const SAREES = [
       shoulderRight: [0.202, 0.042],
       hipLeft: [0.689, 0.347],
       hipRight: [0.346, 0.352],
+    },
+    // Her arms hang nearly straight, 7° and 11° out from vertical: the pose
+    // the sleeves swing from to follow the customer's.
+    sleeves: {
+      elbowLeft: [0.934, 0.191],
+      elbowRight: [0.083, 0.218],
+      hem: 0.245,
     },
   },
   {

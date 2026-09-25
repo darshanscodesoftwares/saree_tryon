@@ -72,9 +72,24 @@ const MASK_BLUR = 2;
 
 // An arm counts as raised when its elbow is higher than this far below the
 // shoulder, in shoulder widths; a hanging elbow is about 0.9 below. Raising an
-// arm drags the pose model's shoulder up with it, so a raised arm's shoulder
-// is held where it was, relative to the other one.
+// arm drags the pose model's shoulder up and out with it, so a raised arm's
+// shoulder is held where it was: against the other shoulder when one arm is
+// up, and against the mouth when both are - the mouth stays put in a shrug,
+// and with the hips out of frame the garment's whole height comes from the
+// shoulder width, so a spread shoulder line made it grow.
 const RAISED = 0.4;
+
+// How much of the elbow reading is taken each frame: slower than the frame,
+// because a sleeve turning is more visible than a hem shifting, and the
+// elbow is the noisiest of the joints read. A guess.
+const ELBOW_EASE = 0.2;
+
+// How many frames an elbow that drops out of view - off the bottom of the
+// frame, say, with the hands on the hips - is kept where it was before the
+// sleeve lets go. The pose model's confidence flickers at the edge of the
+// frame, and a sleeve that let go on every flicker twitched. About two thirds
+// of a second; a guess.
+const ELBOW_GRACE = 20;
 
 // The arms, as capsules round the pose model's points, in shoulder widths:
 // about 9 cm across an upper arm, 7 across a forearm and 9 across a hand
@@ -205,7 +220,10 @@ export class Stage {
     this._fit = null;
     this._edges = null;
     this._across = null;
+    this._belowMouth = null;
     this._build = [1, 1];
+    this._elbow = { left: null, right: null };
+    this._elbowLost = { left: 0, right: 0 };
     this._maskSum = null;
     this._armPoints = new Map();
     this._wearing = null;
@@ -238,7 +256,7 @@ export class Stage {
   wear(entry) {
     this._wearing = entry;
     this.anchors = entry.anchors ?? DEFAULT_ANCHORS;
-    this.garment.setAnchors(this.anchors, entry.free ?? []);
+    this.garment.setAnchors(this.anchors, entry.free ?? [], entry.sleeves ?? null);
     this._edges = null;
     const show = (texture) => {
       if (this._wearing !== entry) return;
@@ -335,8 +353,26 @@ export class Stage {
     const arms = this._arms(landmarks);
     const outline = this._smooth(mask);
     this._setMask(outline, arms);
-    this.garment.update(this._fit, this._readEdges(outline, arms));
+    this.garment.update(this._fit, this._readEdges(outline, arms), this._elbowsOf(landmarks, mid, torso));
     this.visible = true;
+  }
+
+  // The customer's elbows in world space, put through the shop's fit as the
+  // frame is and damped like it, so a sleeve turns with the arm but does not
+  // shiver with the pose model's reading of it. Null where not seen.
+  _elbowsOf(landmarks, mid, torso) {
+    for (const [side, k] of [["left", POSE.ELBOW_LEFT], ["right", POSE.ELBOW_RIGHT]]) {
+      const m = landmarks[k];
+      if (!seen(m)) {
+        if (++this._elbowLost[side] > ELBOW_GRACE) this._elbow[side] = null;
+        continue;
+      }
+      this._elbowLost[side] = 0;
+      const now = this._toWorld(m).sub(mid).multiplyScalar(this.settings.scale).add(mid);
+      now.y -= this.settings.offsetY * torso;
+      this._elbow[side] = this._elbow[side] ? this._elbow[side].lerp(now, ELBOW_EASE) : now;
+    }
+    return this._elbow;
   }
 
   // Hold a raised arm's shoulder where it was against the other shoulder. The
@@ -349,11 +385,22 @@ export class Stage {
       seen(landmarks[elbow]) && this._toWorld(landmarks[elbow]).y > shoulder.y - RAISED * width;
     const left = raised(POSE.ELBOW_LEFT, shoulderLeft);
     const right = raised(POSE.ELBOW_RIGHT, shoulderRight);
-    if (left === right) {
-      if (!left) this._across = shoulderRight.clone().sub(shoulderLeft);
+    const ml = landmarks[POSE.MOUTH_LEFT], mr = landmarks[POSE.MOUTH_RIGHT];
+    const mouth = seen(ml) && seen(mr) ? this._toWorld(ml).add(this._toWorld(mr)).multiplyScalar(0.5) : null;
+    if (!left && !right) {
+      this._across = shoulderRight.clone().sub(shoulderLeft);
+      if (mouth) this._belowMouth = shoulderLeft.clone().add(shoulderRight).multiplyScalar(0.5).sub(mouth);
       return { shoulderLeft, shoulderRight };
     }
     if (!this._across) return { shoulderLeft, shoulderRight };
+    if (left && right) {
+      if (!mouth || !this._belowMouth) return { shoulderLeft, shoulderRight };
+      const mid = mouth.add(this._belowMouth);
+      return {
+        shoulderLeft: mid.clone().addScaledVector(this._across, -0.5),
+        shoulderRight: mid.clone().addScaledVector(this._across, 0.5),
+      };
+    }
     return left
       ? { shoulderLeft: shoulderRight.clone().sub(this._across), shoulderRight }
       : { shoulderLeft, shoulderRight: shoulderRight.copy(shoulderLeft).add(this._across) };
@@ -544,13 +591,20 @@ export class Stage {
   }
 
   // Nobody in frame: the garment goes away rather than hanging in the air, and
-  // the damping forgets where the last body was.
+  // everything learned about the last body is forgotten - the next one may be
+  // a different person, with a different build.
   hide() {
     this.visible = false;
     this._fit = null;
     this._edges = null;
+    this._elbow.left = this._elbow.right = null;
+    this._elbowLost.left = this._elbowLost.right = 0;
     this._maskSum = null;
     this._armPoints.clear();
+    this._across = null;
+    this._belowMouth = null;
+    this._build = [1, 1];
+    this.garment.forget();
   }
 
   render() {
