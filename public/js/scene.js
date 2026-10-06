@@ -38,10 +38,14 @@ const EASE = 0.35;
 
 // How far the cloth's edge may be moved to meet the body's, as a share of
 // where the photo had it. The outline includes whatever the customer is
-// wearing, so an unbounded match would dress a baggy jacket. Guesses, to be
-// settled on real people.
-const EDGE_MIN = 0.8;
-const EDGE_MAX = 1.25;
+// wearing, so an unbounded match would dress a baggy jacket. Held near 1
+// because the saree has to read as the one photographed: stretched much past
+// a tenth either way, the border thickens, the pleats splay and the drape on
+// screen is no longer the drape in the picture. A body outside these bounds
+// is shown the photo's own width rather than a restyled garment. Guesses, to
+// be settled on real people.
+const EDGE_MIN = 0.92;
+const EDGE_MAX = 1.1;
 
 // How much of the edge reading is taken each frame - gentler than the fit,
 // because the outline's edge flickers wherever an arm nearly touches the
@@ -54,10 +58,13 @@ const EDGE_EASE = 0.15;
 // so a broad-shouldered customer is not dressed in a slim model's width. It
 // is read only while that arm hangs (elbow within BUILD_ELBOW shoulder widths
 // of straight below the shoulder): an arm out to the side reads as shoulder.
-// Bounds and rates are guesses; the reading is slow on purpose, since build
-// does not change from frame to frame.
-const BUILD_MIN = 0.85;
-const BUILD_MAX = 1.4;
+// Held near 1 for the same reason as EDGE_MIN: this widens the WHOLE garment,
+// so a wide bound rewrites the photographed drape - at 1.4 the border and the
+// pleats are half again as wide as the saree being sold. Bounds and rates are
+// guesses; the reading is slow on purpose, since build does not change from
+// frame to frame.
+const BUILD_MIN = 0.92;
+const BUILD_MAX = 1.1;
 const BUILD_EASE = 0.05;
 const BUILD_ELBOW = 0.3;
 
