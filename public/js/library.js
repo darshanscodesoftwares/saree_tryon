@@ -159,6 +159,56 @@ export const SAREES = [
     free: [[0.816, 0.009], [0.818, 0.028], [0.818, 0.053], [0.822, 0.081], [0.827, 0.109], [0.831, 0.138], [0.835, 0.165], [0.839, 0.189], [0.846, 0.215], [0.854, 0.241], [0.872, 0.268], [0.889, 0.296], [0.908, 0.324], [0.927, 0.347], [0.946, 0.367], [0.964, 0.387], [0.968, 0.411], [0.974, 0.430], [0.979, 0.447], [0.966, 0.465], [0.946, 0.476], [0.919, 0.484], [0.891, 0.494], [0.895, 0.519], [0.908, 0.552], [0.921, 0.584], [0.934, 0.624], [0.946, 0.665], [0.959, 0.706], [0.972, 0.746], [0.985, 0.787], [0.998, 0.827], [1.002, 0.841], [0.996, 0.846], [0.974, 0.848], [0.964, 0.855], [0.940, 0.856], [0.919, 0.858], [0.897, 0.860], [0.876, 0.861], [0.854, 0.863], [0.833, 0.864], [0.812, 0.865], [0.790, 0.866], [0.760, 0.868], [0.739, 0.870], [0.732, 0.839], [0.722, 0.791], [0.709, 0.750], [0.692, 0.710], [0.687, 0.661], [0.685, 0.612], [0.692, 0.572], [0.704, 0.531], [0.719, 0.495], [0.734, 0.465], [0.747, 0.430], [0.754, 0.393], [0.747, 0.357], [0.743, 0.320], [0.737, 0.288], [0.730, 0.257], [0.726, 0.230], [0.773, 0.207], [0.820, 0.192], [0.827, 0.165], [0.822, 0.134], [0.818, 0.101], [0.814, 0.065], [0.809, 0.030]],
   },
   {
+    id: "red-bridal",
+    name: "Red, net and sequin bridal",
+    tags: { fabric: "net with sequin work", border: "scalloped", colour: "red" },
+    // python3 tools/garment_cutout.py "photos/Elegant Red Bridal Portrait.png" \
+    //     public/textures/red-bridal.png --plain \
+    //     --patch 378,534 400,532 425,530 450,528 475,529 500,530 525,528 550,528 \
+    //             575,532 600,534 612,534 616,562 612,592 600,612 390,614 378,600 \
+    //             374,566 \
+    //     --neck 0,280 380,280 400,300 420,316 450,322 480,324 510,324 540,322 \
+    //            565,314 590,296 620,280 1023,280 \
+    //     --anchors 611,365 401,371 571,715 463,717 --name red-bridal
+    //
+    // The easiest cut of the three and the only one needing no --skin at all:
+    // red is as far from both skin and a grey backdrop as a saree gets, and the
+    // blouse is full-sleeved to the wrist, so there is no bare arm anywhere.
+    // The backdrop came away in one pass, taking the sheer net train's outer
+    // reach with it - net over grey reads as grey.
+    //
+    // Her hands are clasped at her waist, over the cloth, which is what --patch
+    // is for. Its top edge follows the bottom of her necklace, which is a real
+    // edge and so the one place the cloth jumps; from there the saree below is
+    // pulled up 86 px over the hands, the bangles and the rings.
+    //
+    // The necklace is KEPT, and that is a decision rather than an oversight.
+    // It is a lace of thin strands, not a solid mass: only 27% of its area is
+    // pearl and the other 73% is the blouse showing between the strands, so
+    // taking it out means fabricating a third of the chest. Both ways were
+    // tried. --mend cannot see it - the tool opens the skin mask by 7 px and
+    // the strands are thinner than that, so it catches 5% of them. And a
+    // --patch over the whole necklace pulled 249 columns of the saree's bold
+    // florals up over the blouse's much finer work, which read as a pasted
+    // slab with hard vertical seams. Left alone it is the garment's own cloth,
+    // correct in every pixel. If the shop wants it gone, it needs a photo shot
+    // without it.
+    //
+    // No `free`: the train spreads wide but entirely below the hip line, where
+    // the viewer already lets the skirt hang, and above the hips nothing is
+    // clear of the body - the dupatta lies along her arm. And no `sleeves`:
+    // the pose model put her left wrist at 658,717, down at her hip, because
+    // her hands are clasped and lost under the bangles. Recording that would
+    // mislead whoever next tries turning a sleeve.
+    image: "textures/red-bridal.png",
+    anchors: {
+      shoulderLeft: [0.580, 0.070],
+      shoulderRight: [0.204, 0.076],
+      hipLeft: [0.508, 0.375],
+      hipRight: [0.315, 0.377],
+    },
+  },
+  {
     id: "demo-kanchipuram",
     name: "Demo, Kanchipuram silk",
     tags: { fabric: "silk", border: "zari", colour: "maroon" },
