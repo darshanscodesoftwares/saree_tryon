@@ -209,6 +209,66 @@ export const SAREES = [
     },
   },
   {
+    id: "mauve-net",
+    name: "Mauve, net with thread work",
+    tags: { fabric: "net with thread work", border: "scalloped", colour: "mauve" },
+    // python3 tools/garment_cutout.py "photos/Elegant Mauve Saree Portrait.png" \
+    //     public/textures/mauve-net.png --plain \
+    //     --patch 372,582 400,572 430,566 460,566 476,578 484,615 520,650 540,700 \
+    //             552,760 545,812 500,824 455,818 430,770 408,710 388,650 374,614 \
+    //     --neck 0,445 320,445 400,448 435,442 460,412 485,386 510,358 535,338 \
+    //            560,318 585,300 610,288 640,280 670,277 720,275 1023,275 \
+    //     --drop 318,438 410,438 406,500 410,545 420,582 318,582 \
+    //     --drop 0,1415 338,1415 338,1500 0,1500 \
+    //     --drop 688,1415 1023,1415 1023,1500 688,1500 \
+    //     --drop 0,1492 1023,1492 1023,1536 0,1536 \
+    //     --anchors 620,328 385,326 579,706 444,708 --name mauve-net
+    //
+    // Cut entirely by geometry, with no --skin at all, because no colour test
+    // could have worked here: the blouse is nude, within a few points of her
+    // own skin, and the saree itself is a dusty mauve not far off either. Where
+    // the gold saree needed --skin-hue and the pink one a tight --skin-area,
+    // this one needs the skin found by hand and cut by outline.
+    //
+    // The --neck line is diagonal, not level, because the saree's own top edge
+    // is: it follows the scalloped border up over her left shoulder, so the
+    // line takes her head, hair, earrings, the fine necklace, her bare right
+    // shoulder and the nude blouse strap in one pass, and keeps every pixel of
+    // cloth below it.
+    //
+    // Her right arm hangs at the garment's own left edge with backdrop beside
+    // it, so it is dropped; both forearms and hands are clasped in front of the
+    // cloth lower down, an island with saree all round it, so those are
+    // patched. The two regions ABUT at y=582 and do not overlap: the tool runs
+    // every --patch before every --drop, so a drop laid over a patch reopens
+    // the hole the patch had just filled. An earlier cut with them overlapping
+    // by four pixels left a grey notch down the side.
+    //
+    // She stands turned about 35 degrees, which is off the brief in photos/README,
+    // and it costs something real: the pose model reads her shoulders 235 px
+    // apart against a 380 px torso, where a square-on body of her build reads
+    // nearer 1.56. The fit still works - the four anchors carry the turn - but
+    // the garment is a turned garment and reads slightly narrow on a square-on
+    // customer.
+    //
+    // No `free`: the hem spreads below the hip line, where the skirt already
+    // hangs free, and nothing above the hips is clear of the body.
+    //
+    // One consequence of a one-shoulder drape, worth knowing before anyone
+    // debugs it: her right shoulder is bare, so the shoulder line - level 0 of
+    // the nine - has no cloth on that side at all. rowEdges returns null for
+    // that level, so _readBuild never runs and this saree is never widened to
+    // the customer's build; it is always shown at the photo's own width. With
+    // BUILD held to 0.92-1.1 that is at most a tenth either way.
+    image: "textures/mauve-net.png",
+    anchors: {
+      shoulderLeft: [0.741, 0.033],
+      shoulderRight: [0.145, 0.032],
+      hipLeft: [0.637, 0.347],
+      hipRight: [0.294, 0.349],
+    },
+  },
+  {
     id: "demo-kanchipuram",
     name: "Demo, Kanchipuram silk",
     tags: { fabric: "silk", border: "zari", colour: "maroon" },
