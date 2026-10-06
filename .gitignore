@@ -13,3 +13,7 @@ certs/
 node_modules/
 .DS_Store
 __pycache__/
+
+# Pillow and numpy for tools/garment_cutout.py, which the viewer itself does
+# not need: it is the only part of the project with dependencies at all.
+.venv/
