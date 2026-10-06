@@ -96,6 +96,69 @@ export const SAREES = [
     },
   },
   {
+    id: "pink-banarasi",
+    name: "Blush pink, banarasi silk",
+    tags: { fabric: "banarasi silk", border: "magenta and zari", colour: "blush pink" },
+    // python3 tools/garment_cutout.py "photos/Blush Pink Bridal Saree Portrait.png" \
+    //     public/textures/pink-banarasi.png --plain \
+    //     --neck 0,190 300,190 340,225 370,248 392,258 410,278 430,292 452,302 \
+    //            474,309 496,315 516,312 536,302 550,292 564,278 578,260 600,250 \
+    //            680,244 1023,200 \
+    //     --skin --skin-area 398,296 535,296 505,345 483,390 452,350 402,312 \
+    //     --drop 299,518 294,540 289,560 284,580 279,600 274,620 271,640 268,660 \
+    //            264,680 259,700 249,720 242,740 239,760 244,780 239,800 235,820 \
+    //            241,840 251,860 270,880 275,888 293,892 295,880 292,860 302,840 \
+    //            301,820 303,800 300,780 304,760 307,740 313,720 312,700 320,680 \
+    //            329,660 339,640 347,620 355,600 363,580 368,560 369,540 375,518 \
+    //     --patch 600,517 690,517 696,540 702,560 708,580 713,605 717,630 721,655 \
+    //             726,680 737,705 744,730 750,755 748,780 755,805 753,830 745,855 \
+    //             716,882 700,892 650,892 650,855 651,805 653,755 655,705 655,655 \
+    //             654,625 640,600 618,570 604,545 \
+    //     --drop 711,520 785,520 785,905 711,905 \
+    //     --drop 700,1430 1023,1430 1023,1535 240,1535 240,1508 700,1508 \
+    //     --free <the 70-point trace of the pallu, printed as `free` below> \
+    //     --anchors 630,330 362,331 561,730 425,730 \
+    //     --elbows 649,539 330,562 --sleeve 523 --name pink-banarasi
+    //
+    // The first saree photographed to this project's own brief - square on,
+    // arms down and away, hands empty, no veil, plain grey backdrop - which is
+    // why it needs neither --mend nor --hair, where the first two did.
+    //
+    // What the cut does, and why:
+    // - blush pink and peach do not sit above skin in hue the way the gold did,
+    //   they straddle it: measured on this photo, her cheek is hue 0.049 and the
+    //   pallu's peach sheen 0.044, at the same saturation and brightness. So no
+    //   --skin-hue separates them, and --skin is confined by --skin-area to the
+    //   one patch of bare chest inside the blouse's V. Drawn a hundred pixels
+    //   wider it reached the pallu crossing her chest and bit a notch out of the
+    //   pleats;
+    // - her right arm hangs clear of the cloth, with backdrop between it and the
+    //   saree at every row, so it is dropped outright. Its outline is traced from
+    //   the photo rather than drawn by eye: the henna is not darker than her skin
+    //   (RGB 190,130,113 against her cheek's 200,146,124), so the skin test reads
+    //   the two alike and neither reliably;
+    // - her left arm does NOT hang clear. It lies along the pallu's outer edge
+    //   with no backdrop between them from the sleeve hem to her fingertips.
+    //   Dropped, it notched the pallu for 350 rows, so it is --patch'ed and the
+    //   pallu's own border pulled up through it. Her hand and bangles reach past
+    //   where the pallu ends, where there is no cloth below to pull, so those
+    //   columns are dropped instead;
+    // - the floor shadow to her left survived the backdrop flood, being joined to
+    //   the hem, and goes with the contact shadow under the hem.
+    image: "textures/pink-banarasi.png",
+    anchors: {
+      shoulderLeft: [0.713, 0.045],
+      shoulderRight: [0.139, 0.045],
+      hipLeft: [0.565, 0.369],
+      hipRight: [0.274, 0.369],
+    },
+    // The pallu hangs clear of the body from the shoulder to below the knee.
+    // The first entry to use `free`: the other two had their hanging pallu cut
+    // away instead, theirs being a strip behind an arm that could not follow a
+    // different one. Traced off the cloth mask row by row, not drawn by eye.
+    free: [[0.816, 0.009], [0.818, 0.028], [0.818, 0.053], [0.822, 0.081], [0.827, 0.109], [0.831, 0.138], [0.835, 0.165], [0.839, 0.189], [0.846, 0.215], [0.854, 0.241], [0.872, 0.268], [0.889, 0.296], [0.908, 0.324], [0.927, 0.347], [0.946, 0.367], [0.964, 0.387], [0.968, 0.411], [0.974, 0.430], [0.979, 0.447], [0.966, 0.465], [0.946, 0.476], [0.919, 0.484], [0.891, 0.494], [0.895, 0.519], [0.908, 0.552], [0.921, 0.584], [0.934, 0.624], [0.946, 0.665], [0.959, 0.706], [0.972, 0.746], [0.985, 0.787], [0.998, 0.827], [1.002, 0.841], [0.996, 0.846], [0.974, 0.848], [0.964, 0.855], [0.940, 0.856], [0.919, 0.858], [0.897, 0.860], [0.876, 0.861], [0.854, 0.863], [0.833, 0.864], [0.812, 0.865], [0.790, 0.866], [0.760, 0.868], [0.739, 0.870], [0.732, 0.839], [0.722, 0.791], [0.709, 0.750], [0.692, 0.710], [0.687, 0.661], [0.685, 0.612], [0.692, 0.572], [0.704, 0.531], [0.719, 0.495], [0.734, 0.465], [0.747, 0.430], [0.754, 0.393], [0.747, 0.357], [0.743, 0.320], [0.737, 0.288], [0.730, 0.257], [0.726, 0.230], [0.773, 0.207], [0.820, 0.192], [0.827, 0.165], [0.822, 0.134], [0.818, 0.101], [0.814, 0.065], [0.809, 0.030]],
+  },
+  {
     id: "demo-kanchipuram",
     name: "Demo, Kanchipuram silk",
     tags: { fabric: "silk", border: "zari", colour: "maroon" },
