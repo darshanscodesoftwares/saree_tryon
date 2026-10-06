@@ -243,7 +243,12 @@ def main():
                     help="the photo row where the blouse's sleeves end")
     ap.add_argument("--free", type=pair, nargs="+", default=None, metavar="X,Y",
                     help="an outline round what may hang outside the customer's body - the pallu off the shoulder - in photo pixels")
-    ap.add_argument("--size", type=int, default=1024, help="the longer side of the image written")
+    # The cut-out is the ceiling on how sharp the saree can ever look: the
+    # viewer only ever stretches it onto a body, never sharpens it. A saree
+    # fills the long side of a phone screen, so 1024 was already being
+    # upscaled there and the weave went before the warp was reached. Only
+    # downscaled, never up - a smaller source is written as it is.
+    ap.add_argument("--size", type=int, default=2048, help="the longer side of the image written")
     ap.add_argument("--name", default=None, help="what to call the entry it prints")
     args = ap.parse_args()
     if bool(args.elbows) != (args.sleeve is not None):
