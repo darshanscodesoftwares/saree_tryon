@@ -16,8 +16,8 @@ npm start
 
 Open <http://localhost:5190> and allow the camera. If that port is taken,
 `PORT=5191 npm start` (and `HTTPS_PORT` for the phone one). No install step and no
-dependencies: three.js and the tracking model come from a CDN, and a stand-in
-saree is in the box so it runs before any photo arrives.
+dependencies: three.js and the tracking model come from a CDN, and the sarees'
+cut-outs are committed, so it runs as soon as it is checked out.
 
 To use it from a phone, put a certificate in `certs/` and the server also
 serves HTTPS on 5453 - browsers give the camera only to localhost or https.
@@ -127,10 +127,10 @@ that say where the photographed model's shoulders and hips are in the picture.
 
 ## What is not here yet
 
-- Photos of the shop's own sarees. The mustard saree's photo may be a
-  generated image, and the body proportions used when the hips are out of
-  frame were measured on that one photo. The demo is drawn by
-  `tools/make_demo.py`.
+- Photos of the shop's own sarees. Every saree in the library is cut from a
+  generated image rather than from the shop's own photography, and the body
+  proportions used when the hips are out of frame were measured on two of
+  them.
 - Occlusion by the upper arm. Forearms and hands go in front of the cloth;
   an upper arm across the chest does not.
 - Any fit stored per product. The sliders are calibration only, as they are in
