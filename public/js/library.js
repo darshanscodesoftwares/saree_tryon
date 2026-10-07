@@ -212,44 +212,49 @@ export const SAREES = [
     id: "mauve-net",
     name: "Mauve, net with thread work",
     tags: { fabric: "net with thread work", border: "scalloped", colour: "mauve" },
-    // python3 tools/garment_cutout.py "photos/Elegant Mauve Saree Portrait.png" \
+    // python3 tools/garment_cutout.py "photos/Elegant Mauve Saree Studio Portrait.png" \
     //     public/textures/mauve-net.png --plain \
-    //     --patch 372,582 400,572 430,566 460,566 476,578 484,615 520,650 540,700 \
-    //             552,760 545,812 500,824 455,818 430,770 408,710 388,650 374,614 \
-    //     --neck 0,445 320,445 400,448 435,442 460,412 485,386 510,358 535,338 \
-    //            560,318 585,300 610,288 640,280 670,277 720,275 1023,275 \
-    //     --drop 318,438 410,438 406,500 410,545 420,582 318,582 \
-    //     --drop 0,1415 338,1415 338,1500 0,1500 \
-    //     --drop 688,1415 1023,1415 1023,1500 688,1500 \
-    //     --drop 0,1492 1023,1492 1023,1536 0,1536 \
-    //     --anchors 620,328 385,326 579,706 444,708 --name mauve-net
+    //     --patch 605,690 650,683 690,690 700,730 698,775 688,805 660,820 620,818 \
+    //             602,780 598,735 \
+    //     --neck 0,402 340,402 400,402 430,398 450,386 475,362 500,342 525,326 \
+    //            550,310 575,296 605,286 635,281 665,279 700,281 1023,281 \
+    //     --drop 300,392 400,392 398,420 396,450 394,480 392,510 390,540 385,570 \
+    //            381,600 378,630 375,660 373,690 372,720 371,750 370,780 369,810 \
+    //            369,842 340,852 300,838 \
+    //     --drop 0,1385 326,1385 326,1490 0,1490 \
+    //     --drop 788,1390 1023,1390 1023,1490 788,1490 \
+    //     --drop 0,1482 1023,1482 1023,1536 0,1536 \
+    //     --anchors 627,319 395,318 586,692 455,704 --name mauve-net
     //
-    // Cut entirely by geometry, with no --skin at all, because no colour test
-    // could have worked here: the blouse is nude, within a few points of her
-    // own skin, and the saree itself is a dusty mauve not far off either. Where
-    // the gold saree needed --skin-hue and the pink one a tight --skin-area,
-    // this one needs the skin found by hand and cut by outline.
+    // The second photo of this saree. The first was shot turned about 35
+    // degrees with both hands clasped over the cloth, and the cut showed it.
+    // This one is square on with her arms hanging down, which is what the brief
+    // in photos/README asks for, and the difference is most of the work.
     //
-    // The --neck line is diagonal, not level, because the saree's own top edge
-    // is: it follows the scalloped border up over her left shoulder, so the
-    // line takes her head, hair, earrings, the fine necklace, her bare right
-    // shoulder and the nude blouse strap in one pass, and keeps every pixel of
-    // cloth below it.
+    // Still cut entirely by geometry, with no --skin at all: the blouse is
+    // nude, within a few points of her own skin, and the saree is a dusty
+    // mauve not far off either, so no colour test separates any of the three.
+    // A skin-tone test run over the finished cut flags 146k pixels - almost
+    // all of them the saree. There is nothing to measure here; it is cut by
+    // outline and judged by eye.
     //
-    // Her right arm hangs at the garment's own left edge with backdrop beside
-    // it, so it is dropped; both forearms and hands are clasped in front of the
-    // cloth lower down, an island with saree all round it, so those are
-    // patched. The two regions ABUT at y=582 and do not overlap: the tool runs
-    // every --patch before every --drop, so a drop laid over a patch reopens
-    // the hole the patch had just filled. An earlier cut with them overlapping
-    // by four pixels left a grey notch down the side.
+    // The --neck line is diagonal because the saree's own top edge is: it
+    // follows the scalloped border up over her left shoulder, taking her head,
+    // hair, earrings, the fine necklace, her bare right shoulder and the nude
+    // blouse strap in one pass.
     //
-    // She stands turned about 35 degrees, which is off the brief in photos/README,
-    // and it costs something real: the pose model reads her shoulders 235 px
-    // apart against a 380 px torso, where a square-on body of her build reads
-    // nearer 1.56. The fit still works - the four anchors carry the turn - but
-    // the garment is a turned garment and reads slightly narrow on a square-on
-    // customer.
+    // Her right arm hangs BESIDE the cloth, not over it - the saree's edge is
+    // a clean line from x=398 at the shoulder to x=368 at her fingertips, and
+    // the arm merely touches it - so the arm is dropped along that line and
+    // the garment keeps its full width. Drawn five pixels shy of the edge it
+    // left a tan strip of her forearm down the whole side.
+    //
+    // Her left arm is BEHIND the pallu, which is sheer: her skin shows through
+    // the net from the shoulder to about y=685 and is part of how that cloth
+    // photographs. It is left alone - patching it would replace the pallu's own
+    // embroidery with cloth pulled from below, which is what spoiled the red
+    // saree's first cut. Her left hand comes out below the pallu's hem and
+    // does lie over the skirt, so that is patched.
     //
     // No `free`: the hem spreads below the hip line, where the skirt already
     // hangs free, and nothing above the hips is clear of the body.
@@ -262,10 +267,10 @@ export const SAREES = [
     // BUILD held to 0.92-1.1 that is at most a tenth either way.
     image: "textures/mauve-net.png",
     anchors: {
-      shoulderLeft: [0.741, 0.033],
-      shoulderRight: [0.145, 0.032],
-      hipLeft: [0.637, 0.347],
-      hipRight: [0.294, 0.349],
+      shoulderLeft: [0.690, 0.030],
+      shoulderRight: [0.156, 0.029],
+      hipLeft: [0.595, 0.341],
+      hipRight: [0.294, 0.351],
     },
   },
   {
