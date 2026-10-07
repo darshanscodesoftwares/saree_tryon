@@ -232,16 +232,23 @@ export const SAREES = [
     // with both hands clasped over the cloth; this one is square on with her
     // arms hanging down, as photos/README asks, and that does most of the work.
     //
-    // The blouse is kept, and getting it is what this cut is about. It is a
-    // nude halter, the same tone as her skin to the eye and to every test the
-    // tool has: hue, saturation and brightness all overlap. What does separate
-    // them is RED MINUS BLUE - her skin runs 95-110, the nude blouse 64-80,
-    // with no overlap anywhere along the boundary. Both edges of the blouse
-    // were traced on that one number rather than drawn by eye, and the --neck
-    // line's near-vertical step at x=401 is the blouse's own left edge read as
-    // y(x): low to its left so her bare shoulder goes, high to its right so the
-    // blouse stays. Read by eye instead, the boundary came out five pixels
-    // wrong and left a strip of her forearm down the whole side.
+    // The blouse's STRAP is kept and nothing else of it, which is what this
+    // cut is about. Across the shoulder line the photo runs skin, strap, skin,
+    // saree in that order - her shoulder out to x=418, the strap from 420 to
+    // 437, her bare chest and its necklace from 440 to 470, then the saree -
+    // so the --neck line has to rise over the strap and drop again on both
+    // sides of it. An earlier cut put the line flat at y=293 across x 420-448
+    // and so kept her neck and chest as well, pearls and all: a pink wedge
+    // where the blouse should be.
+    //
+    // None of that could be found by eye or by any test the tool has, because
+    // the strap is nude and her skin is the same tone: hue, saturation and
+    // brightness all overlap. What separates them is RED MINUS BLUE - her skin
+    // runs 95-110, the nude strap 64-80, with no overlap along the whole
+    // boundary. Every number in the --neck line between x=405 and x=472, and
+    // in the top of the --drop, is read off that one channel. Read by eye the
+    // left edge came out five pixels wrong and left a strip of her forearm down
+    // the side.
     //
     // There is still no --skin anywhere: the saree is a dusty mauve, the blouse
     // is nude and her skin sits between them, so nothing here is cut by colour
@@ -250,11 +257,20 @@ export const SAREES = [
     //
     // Her right arm hangs beside the cloth rather than over it, so it is
     // dropped along the traced edge and the garment keeps its full width. Her
-    // left arm is BEHIND the pallu, which is sheer: her skin shows through the
-    // net down to about y=685 and is part of how that cloth photographs, so it
-    // is left alone - patching it would replace the pallu's own embroidery with
-    // cloth pulled from below, which is what spoiled the red saree's first cut.
-    // Only her left hand, which comes out below the pallu's hem, is patched.
+    // left arm is BEHIND the pallu, which is sheer, so her arm shows through the
+    // net from about y=400 to y=685 and the crook of her elbow is legible in
+    // the cloth. That is the one fault left in this cut, and both ways out were
+    // tried and are worse. --patch pulls cloth up from below, and below the arm
+    // is her hand and then the skirt, so the pallu's own embroidery would be
+    // replaced with skirt pulled over it - the red saree's first cut failed
+    // exactly that way. --mend fills from the print around it, and over
+    // embroidery this dense it laid down misaligned tiles and cut a hairline of
+    // transparency along its own outline; it took the skin-range pixels from
+    // 640 to 312 and looked far worse doing it. 640 px is 0.16% of the cut, so
+    // it is left. The real fix is not a cut at all: sheer cloth wants partial
+    // alpha, so that the CUSTOMER's arm shows through the pallu instead of this
+    // model's. Only her left hand, which comes out below the pallu's hem and
+    // lies over the skirt, is patched.
     //
     // No `free`: the hem spreads below the hip line, where the skirt already
     // hangs free, and nothing above the hips is clear of the body.
