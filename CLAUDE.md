@@ -61,6 +61,26 @@ one place it jumps. It prints the library entry to paste into
 `public/js/library.js`, with the command in a comment so the cut can be
 remade.
 
+`garment_cutout.py` needs Pillow and numpy, which the viewer does not: run it
+as `.venv/bin/python` (`python3 -m venv .venv && .venv/bin/pip install Pillow
+numpy` once).
+
+## Looking at what is in the library
+
+```bash
+.venv/bin/python tools/make_previews.py        # all of them
+.venv/bin/python tools/make_previews.py <id>   # one
+```
+
+Writes a sheet per saree into `previews/`, and `previews/_all.png` with them
+all side by side: the cut-out on a teal checkerboard - teal because every
+saree so far is warm, and a checker because a hole in the cloth and a
+transparent background look alike against anything flat - with the four
+anchors and the shoulder and hip lines drawn on, the `free` outline where an
+entry has one, and the spans those anchors imply. Since the viewer only ever
+wears the front view, a cut-out IS the model, so this is the whole of what
+there is to look at. `previews/` is not committed; rerun it after recutting.
+
 ## Conventions
 
 - Comments say **why**, not what. The reason a number is 1.18 belongs next to

@@ -17,3 +17,7 @@ __pycache__/
 # Pillow and numpy for tools/garment_cutout.py, which the viewer itself does
 # not need: it is the only part of the project with dependencies at all.
 .venv/
+
+# Review sheets rendered from the library by tools/make_previews.py. Derived
+# from the cut-outs, which ARE committed, so there is nothing here to keep.
+previews/
