@@ -216,55 +216,65 @@ export const SAREES = [
     //     public/textures/mauve-net.png --plain \
     //     --patch 605,690 650,683 690,690 700,730 698,775 688,805 660,820 620,818 \
     //             602,780 598,735 \
-    //     --neck 0,402 340,402 400,402 430,398 450,386 475,362 500,342 525,326 \
-    //            550,310 575,296 605,286 635,281 665,279 700,281 1023,281 \
-    //     --drop 300,392 400,392 398,420 396,450 394,480 392,510 390,540 385,570 \
-    //            381,600 378,630 375,660 373,690 372,720 371,750 370,780 369,810 \
-    //            369,842 340,852 300,838 \
+    //     --neck 0,402 300,402 380,402 399,402 401,376 405,362 409,346 413,333 \
+    //            417,320 421,304 425,295 434,293 443,293 449,300 453,352 463,353 \
+    //            473,352 483,348 497,344 513,337 533,323 553,309 575,296 605,286 \
+    //            635,281 665,279 700,281 1023,281 \
+    //     --drop 300,388 401,388 401,430 401,470 403,505 402,540 393,560 388,580 \
+    //            383,600 379,620 375,640 372,660 372,690 373,720 372,750 370,780 \
+    //            369,810 371,838 345,850 300,842 \
     //     --drop 0,1385 326,1385 326,1490 0,1490 \
     //     --drop 788,1390 1023,1390 1023,1490 788,1490 \
     //     --drop 0,1482 1023,1482 1023,1536 0,1536 \
     //     --anchors 627,319 395,318 586,692 455,704 --name mauve-net
     //
-    // The second photo of this saree. The first was shot turned about 35
-    // degrees with both hands clasped over the cloth, and the cut showed it.
-    // This one is square on with her arms hanging down, which is what the brief
-    // in photos/README asks for, and the difference is most of the work.
+    // The second photo of this saree. The first was turned about 35 degrees
+    // with both hands clasped over the cloth; this one is square on with her
+    // arms hanging down, as photos/README asks, and that does most of the work.
     //
-    // Still cut entirely by geometry, with no --skin at all: the blouse is
-    // nude, within a few points of her own skin, and the saree is a dusty
-    // mauve not far off either, so no colour test separates any of the three.
-    // A skin-tone test run over the finished cut flags 146k pixels - almost
-    // all of them the saree. There is nothing to measure here; it is cut by
-    // outline and judged by eye.
+    // The blouse is kept, and getting it is what this cut is about. It is a
+    // nude halter, the same tone as her skin to the eye and to every test the
+    // tool has: hue, saturation and brightness all overlap. What does separate
+    // them is RED MINUS BLUE - her skin runs 95-110, the nude blouse 64-80,
+    // with no overlap anywhere along the boundary. Both edges of the blouse
+    // were traced on that one number rather than drawn by eye, and the --neck
+    // line's near-vertical step at x=401 is the blouse's own left edge read as
+    // y(x): low to its left so her bare shoulder goes, high to its right so the
+    // blouse stays. Read by eye instead, the boundary came out five pixels
+    // wrong and left a strip of her forearm down the whole side.
     //
-    // The --neck line is diagonal because the saree's own top edge is: it
-    // follows the scalloped border up over her left shoulder, taking her head,
-    // hair, earrings, the fine necklace, her bare right shoulder and the nude
-    // blouse strap in one pass.
+    // There is still no --skin anywhere: the saree is a dusty mauve, the blouse
+    // is nude and her skin sits between them, so nothing here is cut by colour
+    // thresholds. A skin-tone test over the finished cut flags 146k pixels,
+    // almost all of them the saree.
     //
-    // Her right arm hangs BESIDE the cloth, not over it - the saree's edge is
-    // a clean line from x=398 at the shoulder to x=368 at her fingertips, and
-    // the arm merely touches it - so the arm is dropped along that line and
-    // the garment keeps its full width. Drawn five pixels shy of the edge it
-    // left a tan strip of her forearm down the whole side.
-    //
-    // Her left arm is BEHIND the pallu, which is sheer: her skin shows through
-    // the net from the shoulder to about y=685 and is part of how that cloth
-    // photographs. It is left alone - patching it would replace the pallu's own
-    // embroidery with cloth pulled from below, which is what spoiled the red
-    // saree's first cut. Her left hand comes out below the pallu's hem and
-    // does lie over the skirt, so that is patched.
+    // Her right arm hangs beside the cloth rather than over it, so it is
+    // dropped along the traced edge and the garment keeps its full width. Her
+    // left arm is BEHIND the pallu, which is sheer: her skin shows through the
+    // net down to about y=685 and is part of how that cloth photographs, so it
+    // is left alone - patching it would replace the pallu's own embroidery with
+    // cloth pulled from below, which is what spoiled the red saree's first cut.
+    // Only her left hand, which comes out below the pallu's hem, is patched.
     //
     // No `free`: the hem spreads below the hip line, where the skirt already
     // hangs free, and nothing above the hips is clear of the body.
     //
-    // One consequence of a one-shoulder drape, worth knowing before anyone
-    // debugs it: her right shoulder is bare, so the shoulder line - level 0 of
-    // the nine - has no cloth on that side at all. rowEdges returns null for
-    // that level, so _readBuild never runs and this saree is never widened to
-    // the customer's build; it is always shown at the photo's own width. With
-    // BUILD held to 0.92-1.1 that is at most a tenth either way.
+    // One side effect of keeping the blouse, worth knowing before anyone debugs
+    // it. Without it this was a one-shoulder drape with nothing at all on the
+    // shoulder line's bare side, so rowEdges nulled level 0 and _readBuild
+    // never ran. The strap puts cloth back on that line, so the build is read
+    // again - and on her own photo it reads 1.000 on the pallu side and 1.095
+    // on the strap side, because there the cloth stops at the strap while her
+    // body goes on to her bare shoulder. That comparison is meaningless on a
+    // one-shoulder garment: the true ratio is 1.82 and only BUILD_MAX holds it
+    // to 1.1. It does no visible harm, because _readEdges then clamps the edge
+    // to within a tenth of that widened figure and drives it at the customer's
+    // own outline anyway - pose-test on this photo lands back on her own saree
+    // either way. But a much broader customer will be stretched a tenth more on
+    // the strap side than on the pallu side. If that ever shows, the fix is to
+    // put the strap in `free`, which takes it out of photoEdges and restores
+    // the old behaviour - at the cost of letting it hang off a narrow
+    // shoulder, which is the worse artefact of the two.
     image: "textures/mauve-net.png",
     anchors: {
       shoulderLeft: [0.690, 0.030],
