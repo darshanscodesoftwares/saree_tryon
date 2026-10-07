@@ -162,50 +162,63 @@ export const SAREES = [
     id: "red-bridal",
     name: "Red, net and sequin bridal",
     tags: { fabric: "net with sequin work", border: "scalloped", colour: "red" },
-    // python3 tools/garment_cutout.py "photos/Elegant Red Bridal Portrait.png" \
+    // python3 tools/garment_cutout.py "photos/Regal Red Indian Bridal Portrait.png" \
     //     public/textures/red-bridal.png --plain \
-    //     --patch 378,534 400,532 425,530 450,528 475,529 500,530 525,528 550,528 \
-    //             575,532 600,534 612,534 616,562 612,592 600,612 390,614 378,600 \
-    //             374,566 \
-    //     --neck 0,280 380,280 400,300 420,316 450,322 480,324 510,324 540,322 \
-    //            565,314 590,296 620,280 1023,280 \
-    //     --anchors 611,365 401,371 571,715 463,717 --name red-bridal
+    //     --patch 616,690 680,688 684,720 682,760 680,800 676,830 670,852 640,860 \
+    //             618,850 614,820 612,780 612,740 614,710 \
+    //     --neck 0,320 400,320 430,318 470,317 510,317 550,317 580,314 600,300 \
+    //            620,285 650,278 690,274 1023,274 \
+    //     --drop 290,688 360,688 358,712 361,732 365,748 368,762 369,790 369,820 \
+    //            369,840 362,852 320,858 290,850 \
+    //     --drop 0,1286 332,1286 332,1346 276,1346 276,1392 316,1396 396,1404 \
+    //            436,1414 436,1424 0,1424 \
+    //     --drop 776,1286 1023,1286 1023,1424 636,1424 636,1414 678,1404 796,1396 \
+    //            850,1392 850,1346 776,1346 \
+    //     --drop 0,1418 1023,1418 1023,1536 0,1536 \
+    //     --anchors 611,356 395,368 565,719 446,723 \
+    //     --elbows 653,560 367,558 --sleeve 690 --name red-bridal
     //
-    // The easiest cut of the three and the only one needing no --skin at all:
-    // red is as far from both skin and a grey backdrop as a saree gets, and the
-    // blouse is full-sleeved to the wrist, so there is no bare arm anywhere.
-    // The backdrop came away in one pass, taking the sheer net train's outer
-    // reach with it - net over grey reads as grey.
+    // The second photo of this saree. The first had her hands clasped at her
+    // waist over the cloth, which cost a --patch 243 columns wide across the
+    // whole front; here her arms hang at her sides, so the only patch left is
+    // 73 columns at one hand. Still no --skin anywhere: red is as far from skin
+    // as a saree gets, and the blouse is full-sleeved to the wrist, so there is
+    // no bare arm at all.
     //
-    // Her hands are clasped at her waist, over the cloth, which is what --patch
-    // is for. Its top edge follows the bottom of her necklace, which is a real
-    // edge and so the one place the cloth jumps; from there the saree below is
-    // pulled up 86 px over the hands, the bangles and the rings.
+    // The GREEN channel is what sorts this photo out: the red cloth sits at
+    // 4-7, her henna'd hands at 115-121. Every boundary round the hands is
+    // traced on it. One trap in that: the sheer veil panels hanging down both
+    // sides read 108, the grey backdrop showing through them, so green alone
+    // calls them skin too. They are told apart by G-B - skin runs 12 and more
+    // above blue, the veil at or below it.
     //
-    // The necklace is KEPT, and that is a decision rather than an oversight.
-    // It is a lace of thin strands, not a solid mass: only 27% of its area is
-    // pearl and the other 73% is the blouse showing between the strands, so
-    // taking it out means fabricating a third of the chest. Both ways were
-    // tried. --mend cannot see it - the tool opens the skin mask by 7 px and
-    // the strands are thinner than that, so it catches 5% of them. And a
-    // --patch over the whole necklace pulled 249 columns of the saree's bold
-    // florals up over the blouse's much finer work, which read as a pasted
-    // slab with hard vertical seams. Left alone it is the garment's own cloth,
-    // correct in every pixel. If the shop wants it gone, it needs a photo shot
-    // without it.
+    // Her right arm hangs at the garment's own edge, so the hand, its bangles
+    // and the henna are dropped along the saree's edge. Her left hand has about
+    // 20 px of pallu outside it, so it is an island and is patched instead.
+    // Both regions run to y=852, past the fingertips: cut off at 826, the patch
+    // pulled her own fingers UP into the hole from below, since the cloth it
+    // pulls from is everything opaque below the hole and that included them.
+    //
+    // The necklace is KEPT, as in the first cut, and for the same reason. It is
+    // a lace of thin strands - 27% of its area is pearl, the rest is the blouse
+    // showing between them - so removing it means fabricating a third of the
+    // chest. --mend cannot see it, the tool opening the skin mask by 7 px where
+    // the strands are thinner than that, and a --patch across the whole
+    // necklace pulled the saree's bold florals over the blouse's finer work and
+    // read as a pasted slab. Left alone it is the garment's own cloth. If the
+    // shop wants it gone it needs a photo shot without it; no cut will do it.
     //
     // No `free`: the train spreads wide but entirely below the hip line, where
     // the viewer already lets the skirt hang, and above the hips nothing is
-    // clear of the body - the dupatta lies along her arm. And no `sleeves`:
-    // the pose model put her left wrist at 658,717, down at her hip, because
-    // her hands are clasped and lost under the bangles. Recording that would
-    // mislead whoever next tries turning a sleeve.
+    // clear of the body. `sleeves` is recorded this time - the first photo's
+    // clasped hands made the pose model put her left wrist down at her hip, and
+    // here both wrists read correctly.
     image: "textures/red-bridal.png",
     anchors: {
-      shoulderLeft: [0.580, 0.070],
-      shoulderRight: [0.204, 0.076],
-      hipLeft: [0.508, 0.375],
-      hipRight: [0.315, 0.377],
+      shoulderLeft: [0.583, 0.059],
+      shoulderRight: [0.206, 0.070],
+      hipLeft: [0.503, 0.381],
+      hipRight: [0.295, 0.384],
     },
   },
   {
